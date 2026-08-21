@@ -4604,14 +4604,27 @@ var qrcode = function() {
         row.classList.remove('is-holdable');
         if (dragging) {
           row.classList.remove('is-track-dragging');
-          var newOrder = Array.from(musicPlaylistList.children)
+          var newOrderUrls = Array.from(musicPlaylistList.children)
             .map(function (el) { return el.dataset.url; })
             .filter(function (url) { return !(DEFAULT_TRACK && url === DEFAULT_TRACK.url); });
-          manifest.musicTracks = newOrder
+          manifest.musicTracks = newOrderUrls
             .map(function (url) { return (manifest.musicTracks || []).find(function (t) { return t.url === url; }); })
             .filter(Boolean);
           rebuildPlaylist();
-          if (isConfigured()) persistManifest().catch(function () {});
+          if (isConfigured()) {
+            // Reorders whichever of these urls still exist server-side; a
+            // track added by someone else in the meantime isn't in
+            // newOrderUrls, so it's kept (appended) rather than dropped.
+            withFreshMusicTracks(function (fresh) {
+              var byUrl = {};
+              fresh.forEach(function (t) { byUrl[t.url] = t; });
+              var reordered = newOrderUrls.map(function (url) { return byUrl[url]; }).filter(Boolean);
+              var placed = {};
+              reordered.forEach(function (t) { placed[t.url] = true; });
+              fresh.forEach(function (t) { if (!placed[t.url]) reordered.push(t); });
+              return reordered;
+            }).then(function () { return persistManifest(); }).catch(function () {});
+          }
         } else if (longPressed) {
           openLyricsModal(track);
         }
@@ -4635,9 +4648,13 @@ var qrcode = function() {
         del.setAttribute('aria-label', 'Remove this track');
         del.addEventListener('click', function (e) {
           e.stopPropagation();
-          manifest.musicTracks = (manifest.musicTracks || []).filter(function (t) { return t.url !== track.url; });
+          var removedUrl = track.url;
+          manifest.musicTracks = (manifest.musicTracks || []).filter(function (t) { return t.url !== removedUrl; });
           rebuildPlaylist();
-          if (isConfigured()) persistManifest().catch(function () {});
+          if (!isConfigured()) return;
+          withFreshMusicTracks(function (fresh) {
+            return fresh.filter(function (t) { return t.url !== removedUrl; });
+          }).then(function () { return persistManifest(); }).catch(function () {});
         });
         row.appendChild(del);
       }
@@ -4752,7 +4769,11 @@ var qrcode = function() {
     function uploadNext(i) {
       if (i >= files.length) {
         if (!manifest.musicTracks) manifest.musicTracks = [];
-        var p = isConfigured() ? persistManifest() : Promise.resolve();
+        var newlyAdded = manifest.musicTracks.slice(existingCount);
+        var p = newlyAdded.length
+          ? withFreshMusicTracks(function (fresh) { return fresh.concat(newlyAdded); })
+            .then(function () { return isConfigured() ? persistManifest() : Promise.resolve(); })
+          : Promise.resolve();
         return p.then(function () {
           var skipNote = skipped ? (' (' + skipped + ' skipped — ' + MAX_MUSIC_TRACKS + ' track max)') : '';
           if (uploaded && !failed) {
@@ -5403,6 +5424,34 @@ var qrcode = function() {
     return ['cloudName', 'uploadPreset', 'jsonbinId', 'jsonbinKey'].every(function (k) {
       return GALLERY_CONFIG[k].indexOf('REPLACE_WITH_') !== 0;
     });
+  }
+
+  /* persistManifest() below builds its whole record from this tab's local
+     `manifest` object and overwrites the entire bin -- fine for fields only
+     one admin touches, but musicTracks gets hit by every visitor's tab (the
+     visit counter and any other action that calls persistManifest() from a
+     tab that loaded the page before a track was added/removed). That stale
+     tab then PUTs its old musicTracks back and the "new" track vanishes.
+     This re-fetches the *current* server-side musicTracks right before
+     applying this tab's specific add/remove/reorder, so a concurrent
+     change elsewhere can't get silently clobbered by this save. */
+  function withFreshMusicTracks(mutate) {
+    if (!isConfigured()) {
+      manifest.musicTracks = mutate(manifest.musicTracks || []);
+      return Promise.resolve();
+    }
+    return fetch('https://api.jsonbin.io/v3/b/' + GALLERY_CONFIG.jsonbinId + '/latest', {
+      headers: { 'X-Master-Key': GALLERY_CONFIG.jsonbinKey }
+    })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        var fresh = (data && data.record && Array.isArray(data.record.musicTracks))
+          ? data.record.musicTracks : (manifest.musicTracks || []);
+        manifest.musicTracks = mutate(fresh);
+      })
+      .catch(function () {
+        manifest.musicTracks = mutate(manifest.musicTracks || []);
+      });
   }
 
   function persistManifest() {
