@@ -8587,7 +8587,7 @@ var qrcode = function() {
     return { lines: lines, lineHeight: lineHeight, fontSize: fontSize };
   }
 
-  function drawCollageHeadlineBlock(ctx, x, y, w, h, subTextBottomY) {
+  function drawCollageHeadlineBlock(ctx, x, y, w, h, subTextCenterY) {
     var headlineH = h * 0.52, subH = h * 0.16;
 
     // Big rainbow-gradient, white-stroked headline -- same outline
@@ -8626,18 +8626,15 @@ var qrcode = function() {
     ctx.stroke();
     ctx.restore();
 
-    // Bottom-aligned to subTextBottomY (the primary photo's own bottom
-    // edge, per the layout in renderCollageCanvas) rather than this block's
-    // own box -- estimating the wrap's line count first since a fixed
-    // (cx,cy) only centers the text, it doesn't pin its bottom edge.
+    // Centered on subTextCenterY (the gap between the primary photo's
+    // bottom edge and the secondaries' top, per renderCollageCanvas)
+    // instead of living inside this block's own box.
     var subFontSize = Math.round(subH * 0.44);
     var subLineH = subH * 0.42;
     var subText = 'thank you for celebrating with us';
     var subMaxW = w * 0.92;
     ctx.font = '600 ' + subFontSize + 'px "Karla Read", sans-serif';
-    var subLineCount = ctx.measureText(subText).width > subMaxW ? 2 : 1;
-    var subBottomY = subTextBottomY != null ? subTextBottomY : (y + h);
-    var subCy = subBottomY - (subLineCount - 1) * subLineH / 2 - subFontSize / 2;
+    var subCy = subTextCenterY != null ? subTextCenterY : (y + h - subH / 2);
     ctx.fillStyle = '#6d6355';
     wrapCollageText(ctx, subText, cx, subCy, subMaxW, subLineH);
 
@@ -8671,15 +8668,9 @@ var qrcode = function() {
 
     var boxW3 = (W - pad * 2 - gap * 2) / 3;
     var secY = row1H + gap / 2, secH = row2H - gap / 2;
-    var sec1Rect = fitCollageTileRect(pad, secY, boxW3, secH);
-    var sec2Rect = fitCollageTileRect(pad + boxW3 + gap, secY, boxW3, secH);
-    var sec3Rect = fitCollageTileRect(pad + (boxW3 + gap) * 2, secY, boxW3, secH);
 
-    // Primary: fit inside its old box first, then grow 115% and pin its
-    // right edge to secondary 3's own right edge (not just the nominal
-    // column width -- fitCollageTileRect can leave slack on either side of
-    // a box that isn't exactly 3:2, so matching the *rendered* tile keeps
-    // the two edges truly flush).
+    // Primary: fit inside its old box first, then grow 115% (centered on
+    // that fit, before any shifting below).
     var textColW = Math.round(W * 0.3);
     var primaryBoxX = textColW + gap / 2, primaryBoxY = pad;
     var primaryBoxW = W - textColW - pad - gap / 2, primaryBoxH = row1H - pad - gap / 2;
@@ -8687,9 +8678,25 @@ var qrcode = function() {
     var growF = 1.15;
     var primW = primaryFit.w * growF, primH = primaryFit.h * growF;
     var primCenterY = primaryFit.y + primaryFit.h / 2;
+    var primaryTopY = primCenterY - primH / 2;
+
+    // Equal top/bottom margin: shift the whole photo grid (primary + all 3
+    // secondaries) down by whatever closes the gap between the margin
+    // above primary and the margin below the secondaries (before the info
+    // line), rather than pinning either edge outright -- growing primary
+    // unevenly eats into the top margin, so a flat pad wouldn't match here.
+    var sec1RectPre = fitCollageTileRect(pad, secY, boxW3, secH);
+    var topMargin = primaryTopY;
+    var bottomMargin = (H - infoRowH) - (sec1RectPre.y + sec1RectPre.h);
+    var shiftDown = (bottomMargin - topMargin) / 2;
+    secY += shiftDown;
+
+    var sec1Rect = fitCollageTileRect(pad, secY, boxW3, secH);
+    var sec2Rect = fitCollageTileRect(pad + boxW3 + gap, secY, boxW3, secH);
+    var sec3Rect = fitCollageTileRect(pad + (boxW3 + gap) * 2, secY, boxW3, secH);
     var primaryRect = {
       x: (sec3Rect.x + sec3Rect.w) - primW,
-      y: primCenterY - primH / 2,
+      y: primaryTopY + shiftDown,
       w: primW, h: primH
     };
 
@@ -8704,7 +8711,10 @@ var qrcode = function() {
     drawCollagePhoto(ctx, collageShots[1], sec1Rect);
     drawCollagePhoto(ctx, collageShots[2], sec2Rect);
     drawCollagePhoto(ctx, collageShots[3], sec3Rect);
-    drawCollageHeadlineBlock(ctx, textBoxX, textBoxY, textBoxW, textBoxH, primaryRect.y + primaryRect.h);
+    // "thank you..." centers in the gap between the primary photo's actual
+    // bottom edge and the secondaries' top, not bottom-aligned to primary.
+    var subTextCenterY = (primaryRect.y + primaryRect.h + sec1Rect.y) / 2;
+    drawCollageHeadlineBlock(ctx, textBoxX, textBoxY, textBoxW, textBoxH, subTextCenterY);
 
     // Small location/date/time line, centered under the secondary row --
     // sits a good bit above H (not just inset by pad) to clear the outer
