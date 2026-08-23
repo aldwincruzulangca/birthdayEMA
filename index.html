@@ -6402,6 +6402,133 @@ var qrcode = function() {
     '<circle cx="110" cy="180" r="8" fill="#c6b6e8" stroke="#4a3350" stroke-width="2"/>' +
     '</svg>');
 
+  pushSvgSticker('hbd-neon', 'Happy Birthday (Neon)', 320, 170,
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 170">' +
+    '<defs><filter id="neonBlur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="4.5"/></filter></defs>' +
+    '<rect x="6" y="6" width="308" height="158" rx="18" fill="#241934" stroke="#0d0716" stroke-width="3"/>' +
+    '<g filter="url(#neonBlur)">' +
+    '<text x="160" y="72" text-anchor="middle" font-family="Arial Rounded MT Bold, Baloo Deco, Comic Sans MS, sans-serif" font-weight="800" font-size="48" fill="none" stroke="#ff4f9c" stroke-width="7">HAPPY</text>' +
+    '<text x="160" y="132" text-anchor="middle" font-family="Arial Rounded MT Bold, Baloo Deco, Comic Sans MS, sans-serif" font-weight="800" font-size="48" fill="none" stroke="#35c9ff" stroke-width="7">BIRTHDAY</text>' +
+    '<animate attributeName="opacity" values="0.8;1;0.65;1;0.9;1" dur="2.6s" repeatCount="indefinite"/>' +
+    '</g>' +
+    '<text x="160" y="72" text-anchor="middle" font-family="Arial Rounded MT Bold, Baloo Deco, Comic Sans MS, sans-serif" font-weight="800" font-size="48" fill="none" stroke="#ffe3f0" stroke-width="2">HAPPY</text>' +
+    '<text x="160" y="132" text-anchor="middle" font-family="Arial Rounded MT Bold, Baloo Deco, Comic Sans MS, sans-serif" font-weight="800" font-size="48" fill="none" stroke="#e4f8ff" stroke-width="2">BIRTHDAY</text>' +
+    '</svg>');
+
+  pushSvgSticker('hbd-rainbow-arc', 'Happy Birthday (Rainbow Arc)', 300, 200,
+    '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 300 200">' +
+    '<defs><linearGradient id="arcGrad" x1="0" y1="0" x2="1" y2="0">' +
+    '<stop offset="0%" stop-color="#f0a0b8"/><stop offset="25%" stop-color="#f8c99a"/>' +
+    '<stop offset="50%" stop-color="#f3dd94"/><stop offset="75%" stop-color="#a4cdec"/>' +
+    '<stop offset="100%" stop-color="#c6b6e8"/></linearGradient></defs>' +
+    '<path id="arcPath" d="M30,150 Q150,20 270,150" fill="none" stroke="url(#arcGrad)" stroke-width="12" stroke-linecap="round"/>' +
+    '<text font-family="Arial Rounded MT Bold, Baloo Deco, Comic Sans MS, sans-serif" font-weight="800" font-size="26" fill="#4a3350">' +
+    '<textPath href="#arcPath" xlink:href="#arcPath" startOffset="50%" text-anchor="middle">Happy Birthday</textPath></text>' +
+    '<g transform="translate(30,150)"><polygon points="0,-9 2.6,-2.6 9,0 2.6,2.6 0,9 -2.6,2.6 -9,0 -2.6,-2.6" fill="#e0b364">' +
+    '<animate attributeName="opacity" values="1;0.3;1" dur="1.1s" repeatCount="indefinite"/></polygon></g>' +
+    '<g transform="translate(270,150)"><polygon points="0,-9 2.6,-2.6 9,0 2.6,2.6 0,9 -2.6,2.6 -9,0 -2.6,-2.6" fill="#e0b364">' +
+    '<animate attributeName="opacity" values="0.3;1;0.3" dur="1.1s" repeatCount="indefinite"/></polygon></g>' +
+    '</svg>');
+
+  pushSvgSticker('hbd-confetti-burst', 'Happy Birthday (Confetti Burst)', 240, 240,
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240">' +
+    '<text x="120" y="112" text-anchor="middle" font-family="Arial Rounded MT Bold, Baloo Deco, Comic Sans MS, sans-serif" font-weight="800" font-size="30" fill="none" stroke="#ffffff" stroke-width="8" stroke-linejoin="round" paint-order="stroke">HAPPY</text>' +
+    '<text x="120" y="112" text-anchor="middle" font-family="Arial Rounded MT Bold, Baloo Deco, Comic Sans MS, sans-serif" font-weight="800" font-size="30" fill="#f0a0b8" stroke="#4a3350" stroke-width="1.5">HAPPY</text>' +
+    '<text x="120" y="146" text-anchor="middle" font-family="Arial Rounded MT Bold, Baloo Deco, Comic Sans MS, sans-serif" font-weight="800" font-size="30" fill="none" stroke="#ffffff" stroke-width="8" stroke-linejoin="round" paint-order="stroke">BIRTHDAY</text>' +
+    '<text x="120" y="146" text-anchor="middle" font-family="Arial Rounded MT Bold, Baloo Deco, Comic Sans MS, sans-serif" font-weight="800" font-size="30" fill="#a4cdec" stroke="#4a3350" stroke-width="1.5">BIRTHDAY</text>' +
+    '<g transform="translate(30,40)"><g><rect x="-6" y="-6" width="12" height="12" fill="#f0a0b8"/><animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="2.2s" repeatCount="indefinite"/></g></g>' +
+    '<g transform="translate(210,45)"><g><circle r="6" fill="#a4cdec"/><animateTransform attributeName="transform" type="rotate" from="360" to="0" dur="1.7s" repeatCount="indefinite"/></g></g>' +
+    '<g transform="translate(20,130)"><g><polygon points="0,-7 6,5 -6,5" fill="#f3dd94"/><animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="1.9s" repeatCount="indefinite"/></g></g>' +
+    '<g transform="translate(216,140)"><g><rect x="-5" y="-5" width="10" height="10" fill="#c6b6e8"/><animateTransform attributeName="transform" type="rotate" from="0" to="-360" dur="2.4s" repeatCount="indefinite"/></g></g>' +
+    '<g transform="translate(50,205)"><g><circle r="5" fill="#f8c99a"/><animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="1.6s" repeatCount="indefinite"/></g></g>' +
+    '<g transform="translate(190,205)"><g><polygon points="0,-7 6,5 -6,5" fill="#e0b364"/><animateTransform attributeName="transform" type="rotate" from="360" to="0" dur="2.0s" repeatCount="indefinite"/></g></g>' +
+    '<g transform="translate(120,20)"><g><rect x="-5" y="-5" width="10" height="10" fill="#f3dd94"/><animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="1.5s" repeatCount="indefinite"/></g></g>' +
+    '<g transform="translate(120,222)"><g><circle r="5" fill="#c6b6e8"/><animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="2.1s" repeatCount="indefinite"/></g></g>' +
+    '</svg>');
+
+  pushSvgSticker('num-1-candle', 'Number 1 Candle', 120, 220,
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 220">' +
+    '<defs><clipPath id="oneBar"><rect x="45" y="60" width="24" height="130" rx="8"/></clipPath></defs>' +
+    '<polygon points="45,70 28,86 45,98" fill="#f0a0b8" stroke="#4a3350" stroke-width="3" stroke-linejoin="round"/>' +
+    '<rect x="30" y="190" width="60" height="14" rx="4" fill="#a4cdec" stroke="#4a3350" stroke-width="3"/>' +
+    '<g clip-path="url(#oneBar)">' +
+    '<rect x="45" y="60" width="24" height="14" fill="#f0a0b8"/><rect x="45" y="74" width="24" height="14" fill="#ffffff"/>' +
+    '<rect x="45" y="88" width="24" height="14" fill="#a4cdec"/><rect x="45" y="102" width="24" height="14" fill="#ffffff"/>' +
+    '<rect x="45" y="116" width="24" height="14" fill="#f3dd94"/><rect x="45" y="130" width="24" height="14" fill="#ffffff"/>' +
+    '<rect x="45" y="144" width="24" height="14" fill="#c6b6e8"/><rect x="45" y="158" width="24" height="14" fill="#ffffff"/>' +
+    '<rect x="45" y="172" width="24" height="14" fill="#f0a0b8"/><rect x="45" y="186" width="24" height="4" fill="#ffffff"/>' +
+    '</g>' +
+    '<rect x="45" y="60" width="24" height="130" rx="8" fill="none" stroke="#4a3350" stroke-width="4"/>' +
+    '<line x1="57" y1="60" x2="57" y2="45" stroke="#4a3350" stroke-width="2.5"/>' +
+    '<path d="M57,45 C51,36 63,27 57,18 C63,27 51,36 57,45 Z" fill="#e0b364">' +
+    '<animate attributeName="opacity" values="1;0.5;1" dur="0.85s" repeatCount="indefinite"/>' +
+    '<animateTransform attributeName="transform" type="scale" values="1;1.18;1" additive="sum" dur="0.85s" repeatCount="indefinite"/>' +
+    '</path>' +
+    '</svg>');
+
+  pushSvgSticker('num-1-balloon', 'Number 1 Balloon', 140, 220,
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 220">' +
+    '<defs><radialGradient id="oneBalloonGrad" cx="35%" cy="25%" r="75%">' +
+    '<stop offset="0%" stop-color="#ffffff"/><stop offset="35%" stop-color="#f0a0b8"/><stop offset="100%" stop-color="#c85a82"/></radialGradient></defs>' +
+    '<g transform="translate(0,-4)">' +
+    '<g><animateTransform attributeName="transform" type="rotate" values="-3 70 60;3 70 60;-3 70 60" dur="2.4s" repeatCount="indefinite"/>' +
+    '<polygon points="58,58 38,76 58,90" fill="url(#oneBalloonGrad)" stroke="#4a3350" stroke-width="3" stroke-linejoin="round"/>' +
+    '<rect x="58" y="20" width="30" height="140" rx="15" fill="url(#oneBalloonGrad)" stroke="#4a3350" stroke-width="3.5"/>' +
+    '<ellipse cx="68" cy="45" rx="8" ry="18" fill="#ffffff" opacity="0.55"/>' +
+    '<polygon points="65,160 81,160 73,176" fill="#c85a82" stroke="#4a3350" stroke-width="2.5"/>' +
+    '<path d="M73,176 C68,188 80,196 73,208" fill="none" stroke="#4a3350" stroke-width="2"/>' +
+    '</g></g>' +
+    '</svg>');
+
+  pushSvgSticker('num-1-confetti', 'Number 1 Sparkle', 160, 200,
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 200">' +
+    '<defs><linearGradient id="oneGrad" x1="0" y1="0" x2="0" y2="1">' +
+    '<stop offset="0%" stop-color="#f0a0b8"/><stop offset="50%" stop-color="#f3dd94"/><stop offset="100%" stop-color="#a4cdec"/></linearGradient></defs>' +
+    '<text x="80" y="158" text-anchor="middle" font-family="Arial Rounded MT Bold, Baloo Deco, Comic Sans MS, sans-serif" font-weight="900" font-size="150" fill="url(#oneGrad)" stroke="#4a3350" stroke-width="4">1</text>' +
+    '<g transform="translate(24,40)"><polygon points="0,-10 3,-3 10,0 3,3 0,10 -3,3 -10,0 -3,-3" fill="#e0b364">' +
+    '<animate attributeName="opacity" values="1;0.25;1" dur="1.0s" repeatCount="indefinite"/></polygon></g>' +
+    '<g transform="translate(132,60)"><polygon points="0,-8 2.4,-2.4 8,0 2.4,2.4 0,8 -2.4,2.4 -8,0 -2.4,-2.4" fill="#c6b6e8">' +
+    '<animate attributeName="opacity" values="0.3;1;0.3" dur="1.2s" repeatCount="indefinite"/></polygon></g>' +
+    '<g transform="translate(126,150)"><polygon points="0,-9 2.7,-2.7 9,0 2.7,2.7 0,9 -2.7,2.7 -9,0 -2.7,-2.7" fill="#a4cdec">' +
+    '<animate attributeName="opacity" values="1;0.3;1" dur="1.35s" repeatCount="indefinite"/></polygon></g>' +
+    '<g transform="translate(30,175)"><polygon points="0,-7 2.1,-2.1 7,0 2.1,2.1 0,7 -2.1,2.1 -7,0 -2.1,-2.1" fill="#f0a0b8">' +
+    '<animate attributeName="opacity" values="0.25;1;0.25" dur="1.1s" repeatCount="indefinite"/></polygon></g>' +
+    '</svg>');
+
+  pushSvgSticker('first-bday-badge', '1st Birthday Badge', 220, 240,
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 240">' +
+    '<defs><linearGradient id="badgeGrad" x1="0" y1="0" x2="1" y2="1">' +
+    '<stop offset="0%" stop-color="#f0a0b8"/><stop offset="50%" stop-color="#f3dd94"/><stop offset="100%" stop-color="#a4cdec"/></linearGradient></defs>' +
+    '<polygon points="70,150 60,225 90,205 108,222 100,150" fill="#c6b6e8" stroke="#4a3350" stroke-width="3" stroke-linejoin="round"/>' +
+    '<polygon points="150,150 160,225 130,205 112,222 120,150" fill="#a4cdec" stroke="#4a3350" stroke-width="3" stroke-linejoin="round"/>' +
+    '<circle cx="110" cy="100" r="82" fill="url(#badgeGrad)" stroke="#4a3350" stroke-width="5"/>' +
+    '<circle cx="110" cy="100" r="64" fill="#fffaf2" stroke="#4a3350" stroke-width="3"/>' +
+    '<text x="110" y="92" text-anchor="middle" font-family="Arial Rounded MT Bold, Baloo Deco, Comic Sans MS, sans-serif" font-weight="800" font-size="42" fill="#4a3350">1st</text>' +
+    '<text x="110" y="128" text-anchor="middle" font-family="Arial Rounded MT Bold, Baloo Deco, Comic Sans MS, sans-serif" font-weight="700" font-size="20" fill="#4a3350">BIRTHDAY</text>' +
+    '<g transform="translate(110,26)"><polygon points="0,-9 2.7,-2.7 9,0 2.7,2.7 0,9 -2.7,2.7 -9,0 -2.7,-2.7" fill="#ffffff">' +
+    '<animate attributeName="opacity" values="1;0.3;1" dur="1.3s" repeatCount="indefinite"/></polygon></g>' +
+    '<g transform="translate(44,58)"><polygon points="0,-6 1.8,-1.8 6,0 1.8,1.8 0,6 -1.8,1.8 -6,0 -1.8,-1.8" fill="#ffffff">' +
+    '<animate attributeName="opacity" values="0.3;1;0.3" dur="1.5s" repeatCount="indefinite"/></polygon></g>' +
+    '<g transform="translate(176,58)"><polygon points="0,-6 1.8,-1.8 6,0 1.8,1.8 0,6 -1.8,1.8 -6,0 -1.8,-1.8" fill="#ffffff">' +
+    '<animate attributeName="opacity" values="1;0.3;1" dur="1.4s" repeatCount="indefinite"/></polygon></g>' +
+    '</svg>');
+
+  pushSvgSticker('first-bday-banner', 'My 1st Birthday Banner', 360, 130,
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 130">' +
+    '<defs><linearGradient id="fbGrad" x1="0" y1="0" x2="1" y2="0">' +
+    '<stop offset="0%" stop-color="#f8c99a"/><stop offset="50%" stop-color="#f0a0b8"/><stop offset="100%" stop-color="#c6b6e8"/></linearGradient></defs>' +
+    '<polygon points="0,20 26,65 0,110 30,100 30,30" fill="#9c86b0" stroke="#4a3350" stroke-width="3" stroke-linejoin="round"/>' +
+    '<polygon points="360,20 334,65 360,110 330,100 330,30" fill="#9c86b0" stroke="#4a3350" stroke-width="3" stroke-linejoin="round"/>' +
+    '<rect x="26" y="24" width="308" height="82" rx="12" fill="url(#fbGrad)" stroke="#4a3350" stroke-width="4"/>' +
+    '<circle cx="60" cy="65" r="24" fill="#fffaf2" stroke="#4a3350" stroke-width="3"/>' +
+    '<text x="60" y="76" text-anchor="middle" font-family="Arial Rounded MT Bold, Baloo Deco, Comic Sans MS, sans-serif" font-weight="800" font-size="30" fill="#4a3350">1</text>' +
+    '<text x="205" y="76" text-anchor="middle" font-family="Segoe Script, Brush Script MT, Estre Script, cursive" font-size="34" fill="#ffffff" stroke="#4a3350" stroke-width="1">My 1st Birthday</text>' +
+    '<g transform="translate(14,65)"><polygon points="0,-6 1.8,-1.8 6,0 1.8,1.8 0,6 -1.8,1.8 -6,0 -1.8,-1.8" fill="#f3dd94">' +
+    '<animate attributeName="opacity" values="1;0.25;1" dur="1.2s" repeatCount="indefinite"/></polygon></g>' +
+    '<g transform="translate(346,65)"><polygon points="0,-6 1.8,-1.8 6,0 1.8,1.8 0,6 -1.8,1.8 -6,0 -1.8,-1.8" fill="#f3dd94">' +
+    '<animate attributeName="opacity" values="0.25;1;0.25" dur="1.2s" repeatCount="indefinite"/></polygon></g>' +
+    '</svg>');
+
   var FRAME_LIBRARY = [
     { id: 'classic', label: 'Classic', style: 'straight' },
     { id: 'wave', label: 'Wave', style: 'wave' },
