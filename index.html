@@ -6406,7 +6406,11 @@ var qrcode = function() {
     { id: 'classic', label: 'Classic', style: 'straight' },
     { id: 'wave', label: 'Wave', style: 'wave' },
     { id: 'dashed', label: 'Dashed', style: 'dashed' },
-    { id: 'dashdot', label: 'Dash-Dot', style: 'dashdot' }
+    { id: 'dashdot', label: 'Dash-Dot', style: 'dashdot' },
+    { id: 'bunting', label: 'Bunting', style: 'bunting' },
+    { id: 'balloons', label: 'Balloons', style: 'balloons' },
+    { id: 'sparkles', label: 'Sparkle Stars', style: 'sparkles' },
+    { id: 'polka', label: 'Polka Trail', style: 'polka' }
   ];
   var selectedFrameStyle = 'straight';
   var selectedFrameColorMode = 'rainbow'; // 'rainbow' | 'custom'
@@ -6459,16 +6463,24 @@ var qrcode = function() {
   function frameColorDefs(colorMode, customColor) {
     if (colorMode === 'custom') {
       var c = customColor || '#f0a0b8';
-      return { strokePaint: c, flowerColors: [c, c], defs: '' };
+      return { strokePaint: c, flowerColors: [c, c], palette: [c, c, c, c, c], defs: '' };
     }
     return {
       strokePaint: 'url(#fr)',
       flowerColors: ['#f0a0b8', '#a4cdec'],
+      palette: ['#f0a0b8', '#f8c99a', '#f3dd94', '#a4cdec', '#c6b6e8'],
       defs: '<defs><linearGradient id="fr" x1="0" y1="0" x2="1" y2="1">' +
         '<stop offset="0%" stop-color="#f0a0b8"/><stop offset="25%" stop-color="#f8c99a"/>' +
         '<stop offset="50%" stop-color="#f3dd94"/><stop offset="75%" stop-color="#a4cdec"/>' +
         '<stop offset="100%" stop-color="#c6b6e8"/></linearGradient></defs>'
     };
+  }
+  function plainRoundedRectPath(x, y, w, h, rx) {
+    return 'M' + (x + rx) + ',' + y +
+      'H' + (x + w - rx) + 'A' + rx + ',' + rx + ' 0 0 1 ' + (x + w) + ',' + (y + rx) +
+      'V' + (y + h - rx) + 'A' + rx + ',' + rx + ' 0 0 1 ' + (x + w - rx) + ',' + (y + h) +
+      'H' + (x + rx) + 'A' + rx + ',' + rx + ' 0 0 1 ' + x + ',' + (y + h - rx) +
+      'V' + (y + rx) + 'A' + rx + ',' + rx + ' 0 0 1 ' + (x + rx) + ',' + y + 'Z';
   }
 
   // One symmetric teardrop/petal outline, stroked from its base (cx,cy) out
@@ -6510,16 +6522,19 @@ var qrcode = function() {
     return stem + leaf1 + leaf2 + petals + center;
   }
 
-  function buildFrameSvg(w, h, style, colorMode, customColor, thicknessMm) {
+  function frameThicknessStrokeW(m, thicknessMm) {
+    // thicknessMm is a relative dial (0.3–1.5), not a real physical unit —
+    // /100 keeps the 0.6mm default lined up with the old fixed m*0.006
+    // "elegant, thin border" look everything below was tuned against.
+    return m * ((thicknessMm != null ? thicknessMm : FRAME_THICKNESS_DEFAULT_MM) / 100);
+  }
+
+  function buildFlourishFrameSvg(w, h, style, colorMode, customColor, thicknessMm) {
     style = style || 'straight';
     var m = Math.min(w, h);
     var inset = m * 0.025;
     var rx = m * 0.07;
-    // thicknessMm is a relative dial (0.3–1.5), not a real physical unit —
-    // /100 keeps the 0.6mm default lined up with the old fixed m*0.006
-    // "elegant, thin border" look, same scale the flourish stroke below
-    // was already tuned against.
-    var strokeW = m * ((thicknessMm != null ? thicknessMm : FRAME_THICKNESS_DEFAULT_MM) / 100);
+    var strokeW = frameThicknessStrokeW(m, thicknessMm);
     var flourishW = m * 0.002; // the corner flowers are drawn even finer (~0.5mm)
     var rectX = inset, rectY = inset, rectW = w - 2 * inset, rectH = h - 2 * inset;
     var colors = frameColorDefs(colorMode, customColor);
@@ -6548,6 +6563,137 @@ var qrcode = function() {
     return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + w + ' ' + h + '">' +
       colors.defs + border + topLeft + bottomRight +
       '</svg>';
+  }
+
+  // ---- Bunting: a little string of party flags hung across the top edge ----
+  function buildBuntingFrameSvg(w, h, colorMode, customColor, thicknessMm) {
+    var m = Math.min(w, h);
+    var inset = m * 0.025, rx = m * 0.07, strokeW = frameThicknessStrokeW(m, thicknessMm);
+    var rectX = inset, rectY = inset, rectW = w - 2 * inset, rectH = h - 2 * inset;
+    var colors = frameColorDefs(colorMode, customColor);
+    var border = '<path d="' + plainRoundedRectPath(rectX, rectY, rectW, rectH, rx) + '" fill="none" stroke="' + colors.strokePaint + '" stroke-width="' + strokeW + '"/>';
+
+    var flagW = m * 0.052, flagH = m * 0.075, gap = m * 0.018;
+    var stringY = rectY;
+    var usableW = rectW - m * 0.16;
+    var n = Math.floor(usableW / (flagW + gap));
+    var totalW = n * (flagW + gap) - gap;
+    var startX = rectX + (rectW - totalW) / 2;
+    var flags = '', stringPts = 'M' + (startX - m * 0.02) + ',' + (stringY + m * 0.012);
+    for (var i = 0; i < n; i++) {
+      var cx = startX + i * (flagW + gap) + flagW / 2;
+      var sag = Math.sin((i + 0.5) / n * Math.PI) * m * 0.02;
+      var topY = stringY + m * 0.012 + sag;
+      stringPts += ' Q' + cx + ',' + (topY + m * 0.02) + ' ' + (cx + flagW / 2 + gap / 2) + ',' + (stringY + m * 0.012 + Math.sin((i + 1) / n * Math.PI) * m * 0.02);
+      var color = colors.palette[i % colors.palette.length];
+      flags += '<path d="M' + (cx - flagW / 2) + ',' + topY + ' L' + (cx + flagW / 2) + ',' + topY + ' L' + cx + ',' + (topY + flagH) + ' Z" fill="' + color + '" opacity="0.92"/>';
+    }
+    var stringColor = colorMode === 'custom' ? (customColor || '#f0a0b8') : '#c9a0b8';
+    var string = '<path d="' + stringPts + '" fill="none" stroke="' + stringColor + '" stroke-width="' + (m * 0.004) + '"/>';
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + w + ' ' + h + '">' + colors.defs + border + string + flags + '</svg>';
+  }
+
+  // ---- Balloons: a balloon cluster tucked in two opposite corners ----
+  function balloonClusterSvg(cx, cy, scale, palette) {
+    var balloons = [
+      { dx: -0.6, dy: -0.9, r: 0.42, c: palette[0] },
+      { dx: 0.15, dy: -1.15, r: 0.5, c: palette[3] },
+      { dx: 0.7, dy: -0.75, r: 0.36, c: palette[2] }
+    ];
+    var g = '';
+    balloons.forEach(function (b) {
+      var bx = cx + b.dx * scale, by = cy + b.dy * scale, r = b.r * scale;
+      g += '<ellipse cx="' + bx + '" cy="' + by + '" rx="' + (r * 0.82) + '" ry="' + r + '" fill="' + b.c + '" opacity="0.94"/>';
+      g += '<path d="M' + bx + ',' + (by + r) + ' L' + cx + ',' + cy + '" fill="none" stroke="' + b.c + '" stroke-width="' + (scale * 0.03) + '"/>';
+      g += '<path d="M' + (bx - r * 0.12) + ',' + (by + r * 0.98) + ' L' + bx + ',' + (by + r * 1.12) + ' L' + (bx + r * 0.12) + ',' + (by + r * 0.98) + 'Z" fill="' + b.c + '"/>';
+    });
+    return g;
+  }
+  function buildBalloonsFrameSvg(w, h, colorMode, customColor, thicknessMm) {
+    var m = Math.min(w, h);
+    var inset = m * 0.025, rx = m * 0.07, strokeW = frameThicknessStrokeW(m, thicknessMm);
+    var rectX = inset, rectY = inset, rectW = w - 2 * inset, rectH = h - 2 * inset;
+    var colors = frameColorDefs(colorMode, customColor);
+    var border = '<path d="' + plainRoundedRectPath(rectX, rectY, rectW, rectH, rx) + '" fill="none" stroke="' + colors.strokePaint + '" stroke-width="' + strokeW + '"/>';
+    var scale = m * 0.09;
+    var tl = balloonClusterSvg(rectX + m * 0.1, rectY + m * 0.14, scale, colors.palette);
+    var br = '<g transform="translate(' + (rectX + rectW) + ',' + (rectY + rectH) + ') rotate(180)">' + balloonClusterSvg(m * 0.1, m * 0.14, scale, colors.palette) + '</g>';
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + w + ' ' + h + '">' + colors.defs + border + tl + br + '</svg>';
+  }
+
+  // ---- Sparkle Stars: twinkle-star glyphs in all four corners ----
+  function sparkleStarSvg(cx, cy, r, color) {
+    function pt(ang, rad) { return { x: cx + Math.cos(ang) * rad, y: cy + Math.sin(ang) * rad }; }
+    var p0 = pt(-Math.PI / 2, r), p1 = pt(-Math.PI / 2 + Math.PI * 0.15, r * 0.28);
+    var p2 = pt(0, r), p3 = pt(Math.PI * 0.15, r * 0.28);
+    var p4 = pt(Math.PI / 2, r), p5 = pt(Math.PI * 0.65, r * 0.28);
+    var p6 = pt(Math.PI, r), p7 = pt(-Math.PI * 0.85, r * 0.28);
+    var d = 'M' + p0.x + ',' + p0.y + 'Q' + p1.x + ',' + p1.y + ' ' + p2.x + ',' + p2.y +
+      'Q' + p3.x + ',' + p3.y + ' ' + p4.x + ',' + p4.y +
+      'Q' + p5.x + ',' + p5.y + ' ' + p6.x + ',' + p6.y +
+      'Q' + p7.x + ',' + p7.y + ' ' + p0.x + ',' + p0.y + 'Z';
+    return '<path d="' + d + '" fill="' + color + '"/>';
+  }
+  function buildSparklesFrameSvg(w, h, colorMode, customColor, thicknessMm) {
+    var m = Math.min(w, h);
+    var inset = m * 0.025, rx = m * 0.07, strokeW = frameThicknessStrokeW(m, thicknessMm);
+    var rectX = inset, rectY = inset, rectW = w - 2 * inset, rectH = h - 2 * inset;
+    var colors = frameColorDefs(colorMode, customColor);
+    var border = '<path d="' + plainRoundedRectPath(rectX, rectY, rectW, rectH, rx) + '" fill="none" stroke="' + colors.strokePaint + '" stroke-width="' + strokeW + '"/>';
+    var pad = m * 0.09;
+    var corners = [
+      { x: rectX + pad, y: rectY + pad, r: m * 0.045, c: colors.palette[0] },
+      { x: rectX + rectW - pad, y: rectY + pad, r: m * 0.03, c: colors.palette[3] },
+      { x: rectX + pad, y: rectY + rectH - pad, r: m * 0.03, c: colors.palette[2] },
+      { x: rectX + rectW - pad, y: rectY + rectH - pad, r: m * 0.045, c: colors.palette[4] }
+    ];
+    var stars = corners.map(function (c) { return sparkleStarSvg(c.x, c.y, c.r, c.c); }).join('');
+    stars += '<circle cx="' + (rectX + pad * 1.9) + '" cy="' + (rectY + pad * 0.5) + '" r="' + (m * 0.012) + '" fill="' + colors.palette[1] + '"/>';
+    stars += '<circle cx="' + (rectX + rectW - pad * 1.9) + '" cy="' + (rectY + rectH - pad * 0.5) + '" r="' + (m * 0.012) + '" fill="' + colors.palette[3] + '"/>';
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + w + ' ' + h + '">' + colors.defs + border + stars + '</svg>';
+  }
+
+  // ---- Polka Trail: the border itself is a beaded trail of rainbow dots ----
+  function buildPolkaFrameSvg(w, h, colorMode, customColor, thicknessMm) {
+    var m = Math.min(w, h);
+    var inset = m * 0.025, rx = m * 0.07;
+    var rectX = inset, rectY = inset, rectW = w - 2 * inset, rectH = h - 2 * inset;
+    var colors = frameColorDefs(colorMode, customColor);
+    var perim = 2 * (rectW + rectH) - 8 * rx + 2 * Math.PI * rx;
+    var dotR = frameThicknessStrokeW(m, thicknessMm) * 1.8, spacing = m * 0.032;
+    var n = Math.round(perim / spacing);
+    function pointAt(t) {
+      var segs = [
+        { len: rectW - 2 * rx, fn: function (s) { return { x: rectX + rx + s, y: rectY }; } },
+        { len: Math.PI / 2 * rx, fn: function (s) { var a = -Math.PI / 2 + s / rx; return { x: rectX + rectW - rx + Math.cos(a) * rx, y: rectY + rx + Math.sin(a) * rx }; } },
+        { len: rectH - 2 * rx, fn: function (s) { return { x: rectX + rectW, y: rectY + rx + s }; } },
+        { len: Math.PI / 2 * rx, fn: function (s) { var a = 0 + s / rx; return { x: rectX + rectW - rx + Math.cos(a) * rx, y: rectY + rectH - rx + Math.sin(a) * rx }; } },
+        { len: rectW - 2 * rx, fn: function (s) { return { x: rectX + rectW - rx - s, y: rectY + rectH }; } },
+        { len: Math.PI / 2 * rx, fn: function (s) { var a = Math.PI / 2 + s / rx; return { x: rectX + rx + Math.cos(a) * rx, y: rectY + rectH - rx + Math.sin(a) * rx }; } },
+        { len: rectH - 2 * rx, fn: function (s) { return { x: rectX, y: rectY + rectH - rx - s }; } },
+        { len: Math.PI / 2 * rx, fn: function (s) { var a = Math.PI + s / rx; return { x: rectX + rx + Math.cos(a) * rx, y: rectY + rx + Math.sin(a) * rx }; } }
+      ];
+      var target = t * perim;
+      for (var k = 0; k < segs.length; k++) {
+        if (target <= segs[k].len) return segs[k].fn(target);
+        target -= segs[k].len;
+      }
+      return segs[0].fn(0);
+    }
+    var dots = '';
+    for (var i = 0; i < n; i++) {
+      var p = pointAt(i / n);
+      dots += '<circle cx="' + p.x.toFixed(2) + '" cy="' + p.y.toFixed(2) + '" r="' + dotR + '" fill="' + colors.palette[i % colors.palette.length] + '"/>';
+    }
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + w + ' ' + h + '">' + colors.defs + dots + '</svg>';
+  }
+
+  function buildFrameSvg(w, h, style, colorMode, customColor, thicknessMm) {
+    if (style === 'bunting') return buildBuntingFrameSvg(w, h, colorMode, customColor, thicknessMm);
+    if (style === 'balloons') return buildBalloonsFrameSvg(w, h, colorMode, customColor, thicknessMm);
+    if (style === 'sparkles') return buildSparklesFrameSvg(w, h, colorMode, customColor, thicknessMm);
+    if (style === 'polka') return buildPolkaFrameSvg(w, h, colorMode, customColor, thicknessMm);
+    return buildFlourishFrameSvg(w, h, style, colorMode, customColor, thicknessMm);
   }
 
   function refreshFrameOverlay() {
