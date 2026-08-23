@@ -812,6 +812,31 @@
     background: rgba(255,255,255,0.14); border: none; color: #fff;
     font-size: 18px; line-height: 1; cursor: pointer;
   }
+  /* Typed size%/rotation alternative to pinching the Ema sticker, docked
+     opposite the close button so it doesn't collide with anything else
+     that floats over the full-screen collage edit view. */
+  .collage-ema-controls:not([hidden]) {
+    position: fixed; top: max(16px, env(safe-area-inset-top)); left: 16px; z-index: 59;
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    background: rgba(20,15,12,0.88); backdrop-filter: blur(12px);
+    border-radius: 14px; padding: 8px 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.45);
+  }
+  .collage-ema-controls-title {
+    margin: 0; font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
+    text-transform: uppercase; color: rgba(255,255,255,0.6);
+  }
+  .collage-ema-controls label {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 12.5px; font-weight: 600; color: #fff;
+  }
+  .collage-ema-controls input[type="number"] {
+    width: 52px; padding: 4px 6px; border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.1);
+    color: #fff; font-size: 13px; font-variant-numeric: tabular-nums;
+  }
+  .collage-ema-controls input[type="number"]:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
+
   /* Edit/Retake/Save float directly over the preview image (like the live
      viewfinder's own controls) instead of sitting in a row below it -- that
      keeps them reachable even when the preview goes full screen (see
@@ -1895,6 +1920,19 @@
           <img class="cam-frame-overlay" id="camPreviewFrameImg" alt="" aria-hidden="true">
         </div>
         <p class="cam-hint collage-tilt-hint" id="collageTiltHint" hidden>&#128241; Tilt your phone sideways for the full 4-in-1 editing view (frames, dragging the photo)</p>
+        <!-- Typed alternative to pinching the Ema sticker -- drag-to-place
+             stays manual/gesture-only, this just covers size + rotation. -->
+        <div class="collage-ema-controls" id="collageEmaControls" hidden>
+          <p class="collage-ema-controls-title">Ema GIF</p>
+          <label>Size
+            <input type="number" id="collageEmaSizeInput" min="20" max="400" step="1" inputmode="numeric">
+            <span>%</span>
+          </label>
+          <label>Rotate
+            <input type="number" id="collageEmaRotateInput" min="-180" max="180" step="1" inputmode="numeric">
+            <span>&deg;</span>
+          </label>
+        </div>
         <!-- Floats over the preview image itself (position:fixed, see CSS)
              instead of pushing it out of the way, so a full-screen collage
              edit view still has Edit/Retake/Save reachable on top of it. -->
@@ -6371,6 +6409,10 @@ var qrcode = function() {
   // Each tile crops to the 4R print's own ratio (4x6in, 3:2 landscape)
   // instead of 16:9, so every shot matches the shape of the finished card.
   var COLLAGE_TILE_RATIO = 3 / 2;
+  // Same venue/date/time already shown on the Details tab's calendar pill
+  // and used in the native share text -- kept in one place there'd be
+  // real drift risk if this were retyped by hand.
+  var COLLAGE_EVENT_INFO_TEXT = 'Limay Multipurpose Hall  •  October 11, 2026  •  11:00 AM';
   var activeStickers = [];
   var previewStickers = [];
 
@@ -7948,7 +7990,7 @@ var qrcode = function() {
     return wrap.clientWidth ? (rect.width / wrap.clientWidth) : 1;
   }
 
-  function makeStickerInteractive(wrapper, state, wrap) {
+  function makeStickerInteractive(wrapper, state, wrap, onChange) {
     var pointers = new Map();
     var dragOffX = 0, dragOffY = 0;
     var startDist = 0, startAngle = 0, startScale = 1, startRot = 0;
@@ -7988,6 +8030,7 @@ var qrcode = function() {
         state.rot = startRot + (a - startAngle);
       }
       applyStickerTransform(wrapper, state);
+      if (onChange) onChange();
     });
 
     function endPointer(e) {
@@ -8004,7 +8047,7 @@ var qrcode = function() {
     wrapper.addEventListener('pointercancel', endPointer);
   }
 
-  function addSticker(item, wrap, stickersArr) {
+  function addSticker(item, wrap, stickersArr, onChange) {
     var wrapper = document.createElement('div');
     wrapper.className = 'sticker-wrap';
 
@@ -8037,7 +8080,7 @@ var qrcode = function() {
     applyStickerTransform(wrapper, state);
     wrap.appendChild(wrapper);
     bringToFront(wrapper);
-    makeStickerInteractive(wrapper, state, wrap);
+    makeStickerInteractive(wrapper, state, wrap, onChange);
     var entry = { wrapper: wrapper, img: img, state: state };
     stickersArr.push(entry);
   }
@@ -8330,6 +8373,10 @@ var qrcode = function() {
     camPickerToggle.hidden = true;
     hidePickers();
     setStickerTarget(null, null);
+    // Only a fresh collage compose (see addCollageEmaSticker) turns this
+    // back on -- keeps it from lingering into a plain photo/video preview.
+    collageEmaControls.hidden = true;
+    collageEmaEntry = null;
   }
 
   function capturePhoto() {
@@ -8540,13 +8587,13 @@ var qrcode = function() {
     return { lines: lines, lineHeight: lineHeight, fontSize: fontSize };
   }
 
-  function drawCollageHeadlineBlock(ctx, x, y, w, h) {
+  function drawCollageHeadlineBlock(ctx, x, y, w, h, subTextBottomY) {
     var headlineH = h * 0.52, subH = h * 0.16;
 
     // Big rainbow-gradient, white-stroked headline -- same outline
     // technique as the site's own single-photo caption text, scaled to
     // fill essentially all of its share of the block.
-    var fit = fitCollageHeadline(ctx, 'Happy Birthday Ema', w * 0.94, headlineH * 0.94);
+    var fit = fitCollageHeadline(ctx, 'Happy 1st Birthday Ema', w * 0.94, headlineH * 0.94);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.font = '800 ' + Math.round(fit.fontSize) + 'px "Baloo Deco", sans-serif';
@@ -8579,9 +8626,20 @@ var qrcode = function() {
     ctx.stroke();
     ctx.restore();
 
+    // Bottom-aligned to subTextBottomY (the primary photo's own bottom
+    // edge, per the layout in renderCollageCanvas) rather than this block's
+    // own box -- estimating the wrap's line count first since a fixed
+    // (cx,cy) only centers the text, it doesn't pin its bottom edge.
+    var subFontSize = Math.round(subH * 0.44);
+    var subLineH = subH * 0.42;
+    var subText = 'thank you for celebrating with us';
+    var subMaxW = w * 0.92;
+    ctx.font = '600 ' + subFontSize + 'px "Karla Read", sans-serif';
+    var subLineCount = ctx.measureText(subText).width > subMaxW ? 2 : 1;
+    var subBottomY = subTextBottomY != null ? subTextBottomY : (y + h);
+    var subCy = subBottomY - (subLineCount - 1) * subLineH / 2 - subFontSize / 2;
     ctx.fillStyle = '#6d6355';
-    ctx.font = '600 ' + Math.round(subH * 0.44) + 'px "Karla Read", sans-serif';
-    wrapCollageText(ctx, 'thank you for celebrating with us', cx, y + h - subH / 2, w * 0.92, subH * 0.42);
+    wrapCollageText(ctx, subText, cx, subCy, subMaxW, subLineH);
 
     collageCircleGeom = { cx: ccx, cy: ccy, diameter: diameter };
   }
@@ -8608,25 +8666,54 @@ var qrcode = function() {
     ctx.fillRect(0, 0, W, H);
 
     var pad = Math.round(W * 0.035), gap = Math.round(W * 0.03);
-    var row1H = Math.round(H * 0.5), row2H = H - row1H;
-    var textColW = Math.round(W * 0.3);
-
-    var textBoxX = pad, textBoxY = pad, textBoxW = textColW - pad - gap / 2, textBoxH = row1H - pad - gap / 2;
-    var primaryBoxX = textColW + gap / 2, primaryBoxY = pad;
-    var primaryBoxW = W - textColW - pad - gap / 2, primaryBoxH = row1H - pad - gap / 2;
-    var primaryRect = fitCollageTileRect(primaryBoxX, primaryBoxY, primaryBoxW, primaryBoxH);
+    var infoRowH = Math.round(H * 0.06);
+    var row1H = Math.round(H * 0.5), row2H = H - row1H - infoRowH;
 
     var boxW3 = (W - pad * 2 - gap * 2) / 3;
-    var secY = row1H + gap / 2, secH = row2H - pad - gap / 2;
+    var secY = row1H + gap / 2, secH = row2H - gap / 2;
     var sec1Rect = fitCollageTileRect(pad, secY, boxW3, secH);
     var sec2Rect = fitCollageTileRect(pad + boxW3 + gap, secY, boxW3, secH);
     var sec3Rect = fitCollageTileRect(pad + (boxW3 + gap) * 2, secY, boxW3, secH);
+
+    // Primary: fit inside its old box first, then grow 115% and pin its
+    // right edge to secondary 3's own right edge (not just the nominal
+    // column width -- fitCollageTileRect can leave slack on either side of
+    // a box that isn't exactly 3:2, so matching the *rendered* tile keeps
+    // the two edges truly flush).
+    var textColW = Math.round(W * 0.3);
+    var primaryBoxX = textColW + gap / 2, primaryBoxY = pad;
+    var primaryBoxW = W - textColW - pad - gap / 2, primaryBoxH = row1H - pad - gap / 2;
+    var primaryFit = fitCollageTileRect(primaryBoxX, primaryBoxY, primaryBoxW, primaryBoxH);
+    var growF = 1.15;
+    var primW = primaryFit.w * growF, primH = primaryFit.h * growF;
+    var primCenterY = primaryFit.y + primaryFit.h / 2;
+    var primaryRect = {
+      x: (sec3Rect.x + sec3Rect.w) - primW,
+      y: primCenterY - primH / 2,
+      w: primW, h: primH
+    };
+
+    // Text/Ema column: whatever's left to the left of the (now bigger)
+    // primary photo, so the headline and circle stay centered in their
+    // own space instead of getting crowded by it.
+    var textBoxX = pad, textBoxY = pad;
+    var textBoxW = primaryRect.x - gap - pad;
+    var textBoxH = row1H - pad - gap / 2;
 
     drawCollagePhoto(ctx, collageShots[0], primaryRect);
     drawCollagePhoto(ctx, collageShots[1], sec1Rect);
     drawCollagePhoto(ctx, collageShots[2], sec2Rect);
     drawCollagePhoto(ctx, collageShots[3], sec3Rect);
-    drawCollageHeadlineBlock(ctx, textBoxX, textBoxY, textBoxW, textBoxH);
+    drawCollageHeadlineBlock(ctx, textBoxX, textBoxY, textBoxW, textBoxH, primaryRect.y + primaryRect.h);
+
+    // Small location/date/time line, centered under the secondary row --
+    // sits a good bit above H (not just inset by pad) to clear the outer
+    // wavy frame border, which itself wobbles past its own inset.
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#6d6355';
+    ctx.font = '600 ' + Math.round(infoRowH * 0.34) + 'px "Karla Read", sans-serif';
+    ctx.fillText(COLLAGE_EVENT_INFO_TEXT, W / 2, H - pad * 0.85);
 
     return Promise.all([
       drawCollageTileFrame(ctx, primaryRect, collageTileFrameStyle[0]),
@@ -8644,6 +8731,56 @@ var qrcode = function() {
     });
   }
 
+  // Returns how camCanvas's own object-fit:contain image maps onto
+  // camPreviewWrap's current local (unscaled) box -- shared by the Ema
+  // sticker's initial placement and its typed size%/rotation controls, so
+  // both agree on the same letterbox offset and scale at any given moment.
+  function collageCanvasFit() {
+    var boxW = camPreviewWrap.clientWidth, boxH = camPreviewWrap.clientHeight;
+    var imgRatio = camCanvas.width / camCanvas.height;
+    var renderW, renderH;
+    if (boxW / boxH > imgRatio) { renderH = boxH; renderW = renderH * imgRatio; }
+    else { renderW = boxW; renderH = renderW / imgRatio; }
+    return { offsetX: (boxW - renderW) / 2, offsetY: (boxH - renderH) / 2, factor: renderW / camCanvas.width };
+  }
+  // The circle guide's own on-screen diameter right now -- the stable
+  // reference point "100%" means in the size input below (so typing 100
+  // always means "exactly fills the circle guide", regardless of the
+  // wrap's current on-screen size or zoom).
+  function collageEmaCircleLocalDiameter() {
+    return collageCircleGeom ? collageCircleGeom.diameter * collageCanvasFit().factor : 0;
+  }
+
+  // Typed size%/rotation alternative to pinching the Ema sticker directly
+  // -- drag-to-place stays gesture-only. Kept in sync both ways: typing a
+  // value here updates the sticker, and pinching/rotating the sticker
+  // (via the onChange callback passed to addSticker) updates these inputs.
+  var collageEmaEntry = null;
+  var collageEmaControls = document.getElementById('collageEmaControls');
+  var collageEmaSizeInput = document.getElementById('collageEmaSizeInput');
+  var collageEmaRotateInput = document.getElementById('collageEmaRotateInput');
+  function refreshCollageEmaInputs() {
+    if (!collageEmaEntry) return;
+    var localDiam = collageEmaCircleLocalDiameter();
+    var pct = localDiam ? Math.round((collageEmaEntry.state.baseWidth * collageEmaEntry.state.scale) / localDiam * 100) : 100;
+    collageEmaSizeInput.value = pct;
+    var deg = Math.round((((collageEmaEntry.state.rot % 360) + 540) % 360) - 180);
+    collageEmaRotateInput.value = deg;
+  }
+  collageEmaSizeInput.addEventListener('input', function () {
+    if (!collageEmaEntry) return;
+    var localDiam = collageEmaCircleLocalDiameter();
+    if (!localDiam) return;
+    var pct = clampNum(parseFloat(collageEmaSizeInput.value) || 100, 20, 400);
+    collageEmaEntry.state.scale = (pct / 100) * localDiam / collageEmaEntry.state.baseWidth;
+    applyStickerTransform(collageEmaEntry.wrapper, collageEmaEntry.state);
+  });
+  collageEmaRotateInput.addEventListener('input', function () {
+    if (!collageEmaEntry) return;
+    collageEmaEntry.state.rot = clampNum(parseFloat(collageEmaRotateInput.value) || 0, -180, 180);
+    applyStickerTransform(collageEmaEntry.wrapper, collageEmaEntry.state);
+  });
+
   // Places the default Ema sticker in the circle guide as a normal,
   // already-interactive sticker (drag/pinch-resize/rotate all come free
   // from the existing sticker system) -- called once, right after the
@@ -8651,8 +8788,9 @@ var qrcode = function() {
   function addCollageEmaSticker() {
     if (!collageCircleGeom) return;
     var emaItem = STICKER_LIBRARY.filter(function (s) { return s.id === 'ema'; })[0] || STICKER_LIBRARY[0];
-    addSticker(emaItem, camPreviewWrap, previewStickers);
+    addSticker(emaItem, camPreviewWrap, previewStickers, refreshCollageEmaInputs);
     var entry = previewStickers[previewStickers.length - 1];
+    collageEmaEntry = entry;
     // Placing it correctly needs camCanvas's object-fit:contain layout to
     // have actually caught up with the width/height attrs renderCollageCanvas
     // just set moments ago -- browsers can take a couple of paint frames to
@@ -8661,24 +8799,15 @@ var qrcode = function() {
     // sticker off the circle guide. Two rAFs reliably clears that.
     requestAnimationFrame(function () {
       requestAnimationFrame(function () {
-        // Map the circle guide's canvas-pixel position into the wrap's own
-        // local (unscaled) CSS space, accounting for the object-fit:contain
-        // letterbox bars around the rendered image whenever the wrap's own
-        // aspect isn't exactly the collage's 3:2 -- the near-universal case
-        // once the edit view goes full screen on a real device.
-        var boxW = camPreviewWrap.clientWidth, boxH = camPreviewWrap.clientHeight;
-        var imgRatio = camCanvas.width / camCanvas.height;
-        var renderW, renderH;
-        if (boxW / boxH > imgRatio) { renderH = boxH; renderW = renderH * imgRatio; }
-        else { renderW = boxW; renderH = renderW / imgRatio; }
-        var offsetX = (boxW - renderW) / 2, offsetY = (boxH - renderH) / 2;
-        var factor = renderW / camCanvas.width;
-        entry.state.x = offsetX + collageCircleGeom.cx * factor;
-        entry.state.y = offsetY + collageCircleGeom.cy * factor;
+        var fit = collageCanvasFit();
+        entry.state.x = fit.offsetX + collageCircleGeom.cx * fit.factor;
+        entry.state.y = fit.offsetY + collageCircleGeom.cy * fit.factor;
         // Starts noticeably bigger than the circle guide (not fitted exactly
-        // to it), so there's obvious room to drag/pinch it down to size.
-        entry.state.scale = (collageCircleGeom.diameter * factor * 1.25) / entry.state.baseWidth;
+        // to it), so there's obvious room to drag/pinch/type it down to size.
+        entry.state.scale = (collageCircleGeom.diameter * fit.factor * 1.25) / entry.state.baseWidth;
         applyStickerTransform(entry.wrapper, entry.state);
+        refreshCollageEmaInputs();
+        collageEmaControls.hidden = false;
       });
     });
   }
@@ -8887,6 +9016,8 @@ var qrcode = function() {
   camRetakeBtn.addEventListener('click', function () {
     camPreview.hidden = true;
     clearPreviewStickers();
+    collageEmaControls.hidden = true;
+    collageEmaEntry = null;
     camEditBtn.style.display = '';
     camPickerToggle.hidden = true;
     hidePickers();
