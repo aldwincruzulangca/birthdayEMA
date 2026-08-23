@@ -722,6 +722,9 @@
   }
   .cam-frame-wrap[data-orientation="portrait"] { aspect-ratio: 9 / 16; max-height: 86vh; }
   .cam-frame-wrap[data-orientation="landscape"] { aspect-ratio: 16 / 9; max-width: 640px; max-height: 68vh; }
+  /* 3-Shot Collage: viewfinder/preview matches the 4R (3:2) print ratio the
+     composited grid is actually built at, instead of the usual 16:9. */
+  .cam-frame-wrap.collage-landscape { aspect-ratio: 3 / 2; max-width: 720px; max-height: 68vh; }
 
   .cam-frame-wrap video:not([hidden]),
   .cam-frame-wrap canvas:not([hidden]) {
@@ -849,9 +852,10 @@
   @media (prefers-reduced-motion: reduce) { .rec-dot { animation: none; } }
 
   .collage-indicator:not([hidden]) {
-    position: absolute; top: 14px; right: 14px; z-index: 51;
+    position: absolute; top: 14px; left: 14px; right: 14px; z-index: 51;
     background: rgba(0,0,0,0.5); color: #fff; font-size: 12px; font-weight: 700;
-    padding: 6px 12px; border-radius: 999px;
+    padding: 6px 12px; border-radius: 16px;
+    max-width: fit-content; margin: 0 auto; text-align: center;
     border: 1.5px solid transparent;
     background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), linear-gradient(90deg, #f0a0b8, #f8c99a, #f3dd94, #a4cdec, #c6b6e8);
     background-origin: border-box; background-clip: padding-box, border-box;
@@ -1764,9 +1768,6 @@
             </button>
             <button type="button" class="cam-icon-btn" id="camModeBtn" aria-label="Switch photo/video mode" aria-pressed="false">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 7 16 12l7 5V7Z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
-            </button>
-            <button type="button" class="cam-icon-btn" id="camOrientBtn" aria-label="Switch portrait/landscape">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="3" width="10" height="18" rx="2"/></svg>
             </button>
             <button type="button" class="shutter-btn" id="camShutterBtn" aria-label="Take photo"></button>
             <button type="button" class="cam-icon-btn" id="camFlipBtn" aria-label="Flip camera">
@@ -6107,7 +6108,6 @@ var qrcode = function() {
   var camVideo = document.getElementById('camVideo');
   var camFrameWrap = document.getElementById('camFrameWrap');
   var camFrameImg = document.getElementById('camFrameImg');
-  var camOrientBtn = document.getElementById('camOrientBtn');
   var camFlipBtn = document.getElementById('camFlipBtn');
   var camShutterBtn = document.getElementById('camShutterBtn');
   var camPreview = document.getElementById('camPreview');
@@ -6133,7 +6133,10 @@ var qrcode = function() {
 
   var camStream = null;
   var camFacing = 'user';
-  var camOrientation = 'portrait';
+  // No manual portrait/landscape toggle -- orientation follows how the
+  // phone is physically held (tilt it 90° sideways for landscape), same as
+  // a real camera app.
+  var camOrientation = window.matchMedia('(orientation: landscape)').matches ? 'landscape' : 'portrait';
   var lastCaptureBlob = null;
   var lastCaptureType = 'photo';
   var camCollageMode = false;
@@ -7774,10 +7777,12 @@ var qrcode = function() {
   }
 
   function refreshLiveFrameSize() {
-    fitCamFrame(camFrameWrap, 96);
+    var collageRatio = (camCollageMode && camOrientation === 'landscape') ? 3 / 2 : null;
+    fitCamFrame(camFrameWrap, 96, collageRatio);
   }
   function refreshPreviewFrameSize() {
-    fitCamFrame(camPreviewWrap, 88, uploadedImageRatio);
+    var collageRatio = lastCaptureType === 'collage' ? 3 / 2 : null;
+    fitCamFrame(camPreviewWrap, 88, collageRatio || uploadedImageRatio);
   }
 
   window.addEventListener('resize', function () {
@@ -7853,6 +7858,7 @@ var qrcode = function() {
         camPreview.hidden = true;
         camLive.hidden = false;
         camMsg.textContent = '';
+        applyPhysicalOrientation();
         refreshLiveFrameSize();
         camPickerToggle.hidden = false;
         hidePickers();
@@ -7872,18 +7878,31 @@ var qrcode = function() {
     startCamera();
   });
 
-  camOrientBtn.addEventListener('click', function () {
-    camOrientation = camOrientation === 'portrait' ? 'landscape' : 'portrait';
+  // Applies whichever way the phone is actually being held right now. While
+  // in 3-Shot Collage, the landscape viewfinder is sized to the 4R (3:2)
+  // print ratio instead of the usual 16:9, so what's on screen while
+  // framing shots matches the composited grid's own proportions.
+  function applyPhysicalOrientation() {
+    var next = window.matchMedia('(orientation: landscape)').matches ? 'landscape' : 'portrait';
+    var collageLandscape = camCollageMode && next === 'landscape';
+    camFrameWrap.classList.toggle('collage-landscape', collageLandscape);
+    camPreviewWrap.classList.toggle('collage-landscape', collageLandscape);
+    if (next === camOrientation) return;
+    camOrientation = next;
     camFrameWrap.setAttribute('data-orientation', camOrientation);
-    camOrientBtn.setAttribute('aria-pressed', camOrientation === 'landscape' ? 'true' : 'false');
     clearStickers();
     refreshFrameOverlay();
     refreshLiveFrameSize();
     renderFrameTray();
+  }
+  window.matchMedia('(orientation: landscape)').addEventListener('change', function () {
+    if (camLive.hidden) return; // only react while the live camera view is open
+    applyPhysicalOrientation();
   });
 
   function enterPreview() {
     camPreviewWrap.setAttribute('data-orientation', camOrientation);
+    camPreviewWrap.classList.toggle('collage-landscape', lastCaptureType === 'collage');
     camLive.hidden = true;
     camPreview.hidden = false;
     camSaveMsg.textContent = '';
@@ -7948,9 +7967,12 @@ var qrcode = function() {
     if (!camCollageMode) { collageIndicator.hidden = true; return; }
     var n = collageShots.length;
     collageIndicator.hidden = false;
-    collageProgressText.textContent = n >= COLLAGE_SHOT_COUNT
-      ? 'Compositing…'
-      : 'Shot ' + (n + 1) + ' of ' + COLLAGE_SHOT_COUNT + ' — ' + COLLAGE_SHOT_LABELS[n];
+    if (n >= COLLAGE_SHOT_COUNT) {
+      collageProgressText.textContent = 'Compositing…';
+    } else {
+      var tiltHint = camOrientation === 'landscape' ? '' : ' — tilt sideways for a better shot';
+      collageProgressText.textContent = 'Shot ' + (n + 1) + ' of ' + COLLAGE_SHOT_COUNT + ' — ' + COLLAGE_SHOT_LABELS[n] + tiltHint;
+    }
   }
 
   function resetCollageState() {
@@ -8102,7 +8124,7 @@ var qrcode = function() {
       uploadedImageRatio = null;
       camCollageMode = false;
       camCollageBtn.setAttribute('aria-pressed', 'false');
-      camOrientBtn.disabled = false;
+      camFrameWrap.classList.remove('collage-landscape');
       collageShots = [];
       collageIndicator.hidden = true;
 
@@ -8217,7 +8239,6 @@ var qrcode = function() {
     recIndicator.hidden = false;
     camShutterBtn.classList.add('is-recording');
     camShutterBtn.setAttribute('aria-label', 'Stop recording');
-    camOrientBtn.disabled = true;
     camFlipBtn.disabled = true;
     camModeBtn.disabled = true;
 
@@ -8237,7 +8258,6 @@ var qrcode = function() {
     recIndicator.hidden = true;
     camShutterBtn.classList.remove('is-recording');
     camShutterBtn.setAttribute('aria-label', 'Start recording');
-    camOrientBtn.disabled = false;
     camFlipBtn.disabled = false;
     camModeBtn.disabled = false;
   }
@@ -8259,23 +8279,11 @@ var qrcode = function() {
       camShutterBtn.classList.remove('video-mode');
       camShutterBtn.setAttribute('aria-label', 'Take photo');
     }
-    // Collage output is always landscape (all 3 shots, and the Happy
-    // Birthday band, are laid out landscape) -- no portrait option for it
-    // yet, so lock the orientation toggle for the duration.
-    if (camCollageMode) {
-      camOrientBtn.disabled = true;
-      if (camOrientation !== 'landscape') {
-        camOrientation = 'landscape';
-        camFrameWrap.setAttribute('data-orientation', 'landscape');
-        camOrientBtn.setAttribute('aria-pressed', 'true');
-        clearStickers();
-        refreshFrameOverlay();
-        refreshLiveFrameSize();
-        renderFrameTray();
-      }
-    } else {
-      camOrientBtn.disabled = false;
-    }
+    // The composited output is always landscape regardless of how it was
+    // shot (each shot gets cover-cropped to 16:9 either way) -- but tilt
+    // the phone sideways while shooting and the viewfinder switches to the
+    // 4R (3:2) collage framing instead of the usual 16:9.
+    applyPhysicalOrientation();
   });
 
   camShutterBtn.addEventListener('click', function () {
