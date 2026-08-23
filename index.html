@@ -7998,10 +7998,23 @@ var qrcode = function() {
     g.addColorStop(1, '#c6b6e8');
     return g;
   }
-  function drawCollageTile(ctx, shotCanvas, x, y, w, h) {
+  // boxX/boxY/boxW/boxH is the band this tile is allowed to occupy -- the
+  // actual photo is always sized to true 16:9 and "contain"-fit (never
+  // stretched) inside that box, then centered. Any leftover box space
+  // shows the calm-rainbow background around it, same as the gaps.
+  function drawCollageTile(ctx, shotCanvas, boxX, boxY, boxW, boxH) {
+    var targetRatio = 16 / 9;
+    var w, h;
+    if (boxW / boxH > targetRatio) {
+      h = boxH; w = h * targetRatio;
+    } else {
+      w = boxW; h = w / targetRatio;
+    }
+    var x = boxX + (boxW - w) / 2;
+    var y = boxY + (boxH - h) / 2;
+
     var r = w * 0.025;
     var strokeW = Math.max(4, w * 0.014);
-    var targetRatio = 16 / 9;
     var sw = shotCanvas.width, sh = shotCanvas.height;
     var srcRatio = sw / sh;
     var cropW, cropH, cropX, cropY;
@@ -8052,7 +8065,7 @@ var qrcode = function() {
   function composeCollage() {
     updateCollageProgressUI();
     document.fonts.ready.then(function () {
-      var W = 1200, H = 1800; // 4R print size, 300dpi 4x6in, portrait
+      var W = 1800, H = 1200; // 4R print size, 300dpi 6x4in, landscape
       camCanvas.width = W;
       camCanvas.height = H;
       var ctx = camCanvas.getContext('2d');
@@ -8089,6 +8102,7 @@ var qrcode = function() {
       uploadedImageRatio = null;
       camCollageMode = false;
       camCollageBtn.setAttribute('aria-pressed', 'false');
+      camOrientBtn.disabled = false;
       collageShots = [];
       collageIndicator.hidden = true;
 
@@ -8244,6 +8258,23 @@ var qrcode = function() {
       camModeBtn.setAttribute('aria-pressed', 'false');
       camShutterBtn.classList.remove('video-mode');
       camShutterBtn.setAttribute('aria-label', 'Take photo');
+    }
+    // Collage output is always landscape (all 3 shots, and the Happy
+    // Birthday band, are laid out landscape) -- no portrait option for it
+    // yet, so lock the orientation toggle for the duration.
+    if (camCollageMode) {
+      camOrientBtn.disabled = true;
+      if (camOrientation !== 'landscape') {
+        camOrientation = 'landscape';
+        camFrameWrap.setAttribute('data-orientation', 'landscape');
+        camOrientBtn.setAttribute('aria-pressed', 'true');
+        clearStickers();
+        refreshFrameOverlay();
+        refreshLiveFrameSize();
+        renderFrameTray();
+      }
+    } else {
+      camOrientBtn.disabled = false;
     }
   });
 
