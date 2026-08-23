@@ -6368,6 +6368,9 @@ var qrcode = function() {
   var collageShots = [];
   var COLLAGE_SHOT_COUNT = 4;
   var COLLAGE_SHOT_LABELS = ['Primary shot', 'Secondary shot 1', 'Secondary shot 2', 'Secondary shot 3'];
+  // Each tile crops to the 4R print's own ratio (4x6in, 3:2 landscape)
+  // instead of 16:9, so every shot matches the shape of the finished card.
+  var COLLAGE_TILE_RATIO = 3 / 2;
   var activeStickers = [];
   var previewStickers = [];
 
@@ -7934,6 +7937,17 @@ var qrcode = function() {
       'rotate(' + state.rot + 'deg) scale(' + state.scale + ')';
   }
 
+  // wrap's own rendered (screen) size, divided by its unscaled layout size --
+  // 1 normally, >1 once the collage editing window has been pinch-zoomed
+  // (see the wrap-level zoom/pan below). Sticker positions are always kept
+  // in wrap's *local* (unscaled) space, since that's the space their own
+  // CSS transform is nested inside of -- so every screen-pixel delta from a
+  // pointer event has to be divided by this factor before it's stored.
+  function wrapZoomFactor(wrap) {
+    var rect = wrap.getBoundingClientRect();
+    return wrap.clientWidth ? (rect.width / wrap.clientWidth) : 1;
+  }
+
   function makeStickerInteractive(wrapper, state, wrap) {
     var pointers = new Map();
     var dragOffX = 0, dragOffY = 0;
@@ -7944,9 +7958,10 @@ var qrcode = function() {
       pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
       bringToFront(wrapper);
       var rect = wrap.getBoundingClientRect();
+      var z = wrapZoomFactor(wrap);
       if (pointers.size === 1) {
-        dragOffX = (e.clientX - rect.left) - state.x;
-        dragOffY = (e.clientY - rect.top) - state.y;
+        dragOffX = ((e.clientX - rect.left) / z) - state.x;
+        dragOffY = ((e.clientY - rect.top) / z) - state.y;
       } else if (pointers.size === 2) {
         var pts = Array.from(pointers.values());
         startDist = pDist(pts[0], pts[1]);
@@ -7960,10 +7975,11 @@ var qrcode = function() {
       if (!pointers.has(e.pointerId)) return;
       pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
       var rect = wrap.getBoundingClientRect();
+      var z = wrapZoomFactor(wrap);
 
       if (pointers.size === 1) {
-        state.x = (e.clientX - rect.left) - dragOffX;
-        state.y = (e.clientY - rect.top) - dragOffY;
+        state.x = ((e.clientX - rect.left) / z) - dragOffX;
+        state.y = ((e.clientY - rect.top) / z) - dragOffY;
       } else if (pointers.size >= 2) {
         var pts = Array.from(pointers.values()).slice(0, 2);
         var d = pDist(pts[0], pts[1]);
@@ -7979,8 +7995,9 @@ var qrcode = function() {
       if (pointers.size === 1) {
         var remaining = Array.from(pointers.values())[0];
         var rect = wrap.getBoundingClientRect();
-        dragOffX = (remaining.x - rect.left) - state.x;
-        dragOffY = (remaining.y - rect.top) - state.y;
+        var z = wrapZoomFactor(wrap);
+        dragOffX = ((remaining.x - rect.left) / z) - state.x;
+        dragOffY = ((remaining.y - rect.top) / z) - state.y;
       }
     }
     wrapper.addEventListener('pointerup', endPointer);
@@ -7988,7 +8005,6 @@ var qrcode = function() {
   }
 
   function addSticker(item, wrap, stickersArr) {
-    var rect = wrap.getBoundingClientRect();
     var wrapper = document.createElement('div');
     wrapper.className = 'sticker-wrap';
 
@@ -8013,8 +8029,8 @@ var qrcode = function() {
     wrapper.appendChild(img);
     wrapper.appendChild(del);
 
-    var baseWidth = rect.width * 0.55;
-    var state = { x: rect.width / 2, y: rect.height / 2, scale: 1, rot: 0, w: item.w, h: item.h, baseWidth: baseWidth };
+    var baseWidth = wrap.clientWidth * 0.55;
+    var state = { x: wrap.clientWidth / 2, y: wrap.clientHeight / 2, scale: 1, rot: 0, w: item.w, h: item.h, baseWidth: baseWidth };
     wrapper.style.width = baseWidth + 'px';
     wrapper.style.height = (baseWidth * item.h / item.w) + 'px';
 
@@ -8034,10 +8050,11 @@ var qrcode = function() {
   function clearPreviewStickers() { clearStickerSet(previewStickers); }
 
   // Composites placed stickers (from their live DOM position/scale/rotation)
-  // onto a canvas of size w x h, scaling from wrap's rendered CSS size.
+  // onto a canvas of size w x h, scaling from wrap's unscaled layout size --
+  // sticker state.x/y/baseWidth are always in that local space (see
+  // wrapZoomFactor), not wrap's current possibly-zoomed rendered size.
   function drawStickersToCanvas(ctx, wrap, stickersArr, w, h) {
-    var wrapRect = wrap.getBoundingClientRect();
-    var factor = w / wrapRect.width;
+    var factor = w / wrap.clientWidth;
     stickersArr.forEach(function (s) {
       var st = s.state;
       var cx = st.x * factor;
@@ -8216,6 +8233,64 @@ var qrcode = function() {
     clearStickers();
     refreshFrameOverlay();
   }
+  /* ---- Pinch-to-zoom / drag-to-pan for the collage edit window itself
+     (the whole photo+frame+stickers view, not any one sticker) -- lets a
+     zoomed-in look line up per-tile frames or the Ema sticker precisely.
+     Mirrors the gallery lightbox's own pinch/pan pattern (translate+scale,
+     clamped 1x-4x, pan only once zoomed in). A gesture that starts on a
+     sticker is left alone here (that's the sticker's own drag/pinch, via
+     makeStickerInteractive) so the two systems never fight over one touch. */
+  var collageViewScale = 1, collageViewX = 0, collageViewY = 0;
+  function applyCollageViewTransform() {
+    camPreviewWrap.style.transform = (collageViewScale === 1 && !collageViewX && !collageViewY)
+      ? '' : 'translate(' + collageViewX + 'px, ' + collageViewY + 'px) scale(' + collageViewScale + ')';
+  }
+  function resetCollageViewTransform() {
+    collageViewScale = 1; collageViewX = 0; collageViewY = 0;
+    camPreviewWrap.style.transform = '';
+  }
+  (function () {
+    var pointers = new Map();
+    var dragging = false, dragStartX = 0, dragStartY = 0, dragOrigX = 0, dragOrigY = 0;
+    var startDist = 0, startScale = 1;
+
+    camPreviewWrap.addEventListener('pointerdown', function (e) {
+      if (lastCaptureType !== 'collage') return;
+      if (e.target.closest && e.target.closest('.sticker-wrap')) return;
+      camPreviewWrap.setPointerCapture(e.pointerId);
+      pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pointers.size === 1) {
+        dragging = true;
+        dragStartX = e.clientX; dragStartY = e.clientY;
+        dragOrigX = collageViewX; dragOrigY = collageViewY;
+      } else if (pointers.size === 2) {
+        var pts = Array.from(pointers.values());
+        startDist = pDist(pts[0], pts[1]);
+        startScale = collageViewScale;
+      }
+    });
+    camPreviewWrap.addEventListener('pointermove', function (e) {
+      if (!pointers.has(e.pointerId)) return;
+      pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pointers.size === 2) {
+        var pts = Array.from(pointers.values());
+        var d = pDist(pts[0], pts[1]);
+        collageViewScale = clampNum(startScale * (d / (startDist || d)), 1, 4);
+        applyCollageViewTransform();
+      } else if (pointers.size === 1 && dragging && collageViewScale > 1) {
+        collageViewX = dragOrigX + (e.clientX - dragStartX);
+        collageViewY = dragOrigY + (e.clientY - dragStartY);
+        applyCollageViewTransform();
+      }
+    });
+    function endPointer(e) {
+      pointers.delete(e.pointerId);
+      dragging = pointers.size > 0;
+    }
+    camPreviewWrap.addEventListener('pointerup', endPointer);
+    camPreviewWrap.addEventListener('pointercancel', endPointer);
+  })();
+
   // A 4-in-1 collage is landscape-shaped (1800x1200); reviewing/editing it
   // is only offered as a proper landscape view when the phone is actually
   // tilted sideways -- not squeezed/cropped into a portrait-shaped box on
@@ -8226,6 +8301,8 @@ var qrcode = function() {
   function updateCollagePreviewOrientation() {
     var isCollage = lastCaptureType === 'collage';
     var landscape = camOrientation === 'landscape';
+    var prevLandscape = camPreviewWrap.classList.contains('collage-landscape');
+    if (isCollage && landscape !== prevLandscape) resetCollageViewTransform();
     camPreviewWrap.setAttribute('data-orientation', camOrientation);
     camPreviewWrap.classList.toggle('collage-landscape', isCollage && landscape);
     camPreviewWrap.classList.toggle('collage-portrait', isCollage && !landscape);
@@ -8328,6 +8405,7 @@ var qrcode = function() {
     collageShots = [];
     collageTileFrameStyle = ['sparkles', 'sparkles', 'sparkles', 'sparkles'];
     updateCollageProgressUI();
+    resetCollageViewTransform();
   }
 
   function captureCollageShot() {
@@ -8394,14 +8472,14 @@ var qrcode = function() {
   // {x,y,w,h} so its selected decorative frame can be overlaid at the
   // exact same rect afterward.
   function fitCollageTileRect(boxX, boxY, boxW, boxH) {
-    var targetRatio = 16 / 9;
+    var targetRatio = COLLAGE_TILE_RATIO;
     var w, h;
     if (boxW / boxH > targetRatio) { h = boxH; w = h * targetRatio; }
     else { w = boxW; h = w / targetRatio; }
     return { x: boxX + (boxW - w) / 2, y: boxY + (boxH - h) / 2, w: w, h: h };
   }
   function drawCollagePhoto(ctx, shotCanvas, rect) {
-    var targetRatio = 16 / 9;
+    var targetRatio = COLLAGE_TILE_RATIO;
     var sw = shotCanvas.width, sh = shotCanvas.height;
     var srcRatio = sw / sh;
     var cropW, cropH, cropX, cropY;
@@ -8489,7 +8567,7 @@ var qrcode = function() {
     // top afterward (see addCollageEmaSticker()), not baked in here, so
     // it's still editable after this first render.
     var circleAreaY = y + headlineH, circleAreaH = h - headlineH - subH;
-    var diameter = Math.min(w * 0.5, circleAreaH * 0.86);
+    var diameter = Math.min(w * 0.72, circleAreaH * 0.94);
     var ccx = x + w / 2, ccy = circleAreaY + circleAreaH / 2;
     ctx.save();
     ctx.beginPath();
@@ -8575,12 +8653,34 @@ var qrcode = function() {
     var emaItem = STICKER_LIBRARY.filter(function (s) { return s.id === 'ema'; })[0] || STICKER_LIBRARY[0];
     addSticker(emaItem, camPreviewWrap, previewStickers);
     var entry = previewStickers[previewStickers.length - 1];
-    var wrapRect = camPreviewWrap.getBoundingClientRect();
-    var factor = wrapRect.width / camCanvas.width;
-    entry.state.x = collageCircleGeom.cx * factor;
-    entry.state.y = collageCircleGeom.cy * factor;
-    entry.state.scale = (collageCircleGeom.diameter * factor * 0.82) / entry.state.baseWidth;
-    applyStickerTransform(entry.wrapper, entry.state);
+    // Placing it correctly needs camCanvas's object-fit:contain layout to
+    // have actually caught up with the width/height attrs renderCollageCanvas
+    // just set moments ago -- browsers can take a couple of paint frames to
+    // re-fit a canvas after its intrinsic size changes, so measuring on the
+    // very next tick can still see the old (pre-resize) fit and place the
+    // sticker off the circle guide. Two rAFs reliably clears that.
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        // Map the circle guide's canvas-pixel position into the wrap's own
+        // local (unscaled) CSS space, accounting for the object-fit:contain
+        // letterbox bars around the rendered image whenever the wrap's own
+        // aspect isn't exactly the collage's 3:2 -- the near-universal case
+        // once the edit view goes full screen on a real device.
+        var boxW = camPreviewWrap.clientWidth, boxH = camPreviewWrap.clientHeight;
+        var imgRatio = camCanvas.width / camCanvas.height;
+        var renderW, renderH;
+        if (boxW / boxH > imgRatio) { renderH = boxH; renderW = renderH * imgRatio; }
+        else { renderW = boxW; renderH = renderW / imgRatio; }
+        var offsetX = (boxW - renderW) / 2, offsetY = (boxH - renderH) / 2;
+        var factor = renderW / camCanvas.width;
+        entry.state.x = offsetX + collageCircleGeom.cx * factor;
+        entry.state.y = offsetY + collageCircleGeom.cy * factor;
+        // Starts noticeably bigger than the circle guide (not fitted exactly
+        // to it), so there's obvious room to drag/pinch it down to size.
+        entry.state.scale = (collageCircleGeom.diameter * factor * 1.25) / entry.state.baseWidth;
+        applyStickerTransform(entry.wrapper, entry.state);
+      });
+    });
   }
 
   function composeCollage() {
