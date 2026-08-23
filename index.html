@@ -640,6 +640,13 @@
   .admin-msg.err { color: var(--c-heart); }
   .admin-msg.ok { color: var(--c-pin); }
 
+  /* ---- Admin: Show/Hide Sections checklist ---- */
+  .toggle-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 13px; color: var(--ink); cursor: pointer; }
+  .toggle-row:last-child { border-bottom: none; }
+  .check-circle { appearance: none; -webkit-appearance: none; width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--line); background: var(--card-solid); cursor: pointer; position: relative; flex-shrink: 0; margin: 0; }
+  .check-circle:checked { background: var(--c-pin); border-color: var(--c-pin); }
+  .check-circle:checked::after { content: ''; position: absolute; left: 7px; top: 3px; width: 5px; height: 10px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+
   .cover-picker-block { margin-top: 16px; }
   .cover-picker-block label { display: block; font-size: 11.5px; font-weight: 700; color: var(--ink-soft); margin-bottom: 8px; }
   .cover-thumb {
@@ -1080,7 +1087,7 @@
      centered on the right, mirroring the desktop nav's centered-left
      placement — so it reads as "the other side" at every width and never
      competes with the banner's star badge up top. ---- */
-  .music-widget {
+  .music-widget:not([hidden]) {
     position: fixed; top: 50%; right: 14px; transform: translateY(-50%);
     z-index: 55; display: flex; flex-direction: column; align-items: center;
     gap: 10px;
@@ -1190,7 +1197,7 @@
     box-shadow: 0 10px 30px rgba(70, 55, 90, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.45) inset;
     z-index: 10;
   }
-  nav.tabbar a {
+  nav.tabbar a:not([hidden]) {
     display: flex; flex-direction: column; align-items: center; gap: 3px;
     text-decoration: none; color: var(--ink-soft);
     font-size: 10.5px; font-weight: 700;
@@ -1418,7 +1425,7 @@
     /* .closing-card and .qr-card are left un-spanned on purpose, so they
        naturally land side by side as the one deliberate 2-up pairing. */
 
-    #details { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+    #details:not([hidden]) { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
     #details .info-pills { grid-column: 1 / -1; flex-direction: row; }
     #details .info-pill { flex: 1; }
 
@@ -1559,7 +1566,7 @@
       </div>
     </div>
 
-    <div class="rsvp-card" style="margin-bottom: 26px;">
+    <div class="rsvp-card" id="rsvpCard" style="margin-bottom: 26px;">
       <div class="rsvp-admin-list" id="rsvpAdminList" hidden>
         <p class="rsvp-admin-total" id="rsvpTotal">0 guests attending</p>
         <div class="rsvp-admin-rows" id="rsvpRows"></div>
@@ -1649,7 +1656,7 @@
       </div>
     </div>
 
-    <div class="program-card">
+    <div class="program-card" id="programCard">
       <div class="sub-head">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
         <h2>Program</h2>
@@ -1687,6 +1694,7 @@
       <div class="video-embed" id="videoEmbed"></div>
     </div>
 
+    <div id="growthGalleryBlock">
     <div class="sub-head">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
       <h2>EMA Through the Months</h2>
@@ -1705,6 +1713,7 @@
 
     <div class="gallery-grid" id="galleryGrid"></div>
     <p class="gallery-note">Photos coming soon &mdash; send KD the birth-to-11-month set and each tile lights up.</p>
+    </div>
 
     <div class="admin-zone">
       <button type="button" class="admin-toggle" id="adminToggle">
@@ -1789,11 +1798,15 @@
           <button type="button" class="pillbtn p3" id="giftMethodAddBtn" style="margin-top: 8px; width: 100%;">Add Payment Method</button>
           <p class="admin-msg" id="giftMethodMsg"></p>
           <div class="img-editor-thumb-tray" id="giftMethodsAdminList"></div>
+          <label style="margin-top: 18px;">Show / Hide Sections</label>
+          <div id="visibilityToggleList"></div>
+          <button type="button" class="pillbtn p3" id="visibilitySaveBtn" style="margin-top: 8px; width: 100%;">Save Visibility</button>
+          <p class="admin-msg" id="visibilityMsg"></p>
         </div>
       </div>
     </div>
 
-    <div class="party-shots">
+    <div class="party-shots" id="partyShotsBlock">
       <div class="sub-head" style="margin-top: 30px;">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2Z"/><circle cx="12" cy="13" r="4"/></svg>
         <h2>1 Year &mdash; Party Shots</h2>
@@ -2154,7 +2167,7 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8 19 13M15 9h0M17.8 6.2 19 5M3 21l9-9M12.2 6.2 11 5"/></svg>
     Invite
   </a>
-  <a href="#details" data-target="details">
+  <a href="#details" data-target="details" id="navDetailsLink">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
     Details
   </a>
@@ -2162,7 +2175,7 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
     Gallery
   </a>
-  <a href="#photobooth" data-target="photobooth">
+  <a href="#photobooth" data-target="photobooth" id="navPhotoboothLink">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2Z"/><circle cx="12" cy="13" r="4"/></svg>
     Photobooth
   </a>
@@ -4553,7 +4566,31 @@ var qrcode = function() {
 
   // Declared up here (rather than further down near persistManifest/loadManifest)
   // because the avatar renderer below reads manifest.* at definition time.
-  var manifest = { months: {}, monthPhotos: {}, photobooth: [], rsvps: [], wishes: [], celebrationLive: false, videoUrl: '', bannerUrl: '', bannerType: 'image', bannerVideos: [], avatarUrls: [], musicTracks: [], guestNames: [], giftMethods: [] };
+  /* Admin-toggleable cards/features. `elId` is hidden/shown directly; kind:
+     'tab' entries additionally hide their bottom-nav link via `navElId` --
+     unlike a discrete tab-switcher, this page is one continuous scroll, so
+     a "tab" only truly disappears for guests when its whole section is
+     hidden too (not just its nav shortcut). Gallery isn't offered as a
+     whole-tab toggle here because the Admin panel itself lives inside that
+     section -- hiding it would lock the site owner out of ever turning
+     anything back on. giftRegistry/wishes are folded into their own
+     existing content-driven hide logic inside applyVisibility() below
+     rather than being blindly hidden/shown here, since giftCard and
+     wishesCard already have their own visibility rules. */
+  var VISIBILITY_TOGGLES = [
+    { key: 'rsvp', label: 'RSVP (card)', elId: 'rsvpCard', kind: 'card' },
+    { key: 'program', label: 'Program Timeline (card)', elId: 'programCard', kind: 'card' },
+    { key: 'giftRegistry', label: 'Gift Registry (card)', elId: 'giftCard', kind: 'card' },
+    { key: 'growthGallery', label: 'Growth Gallery (within Gallery)', elId: 'growthGalleryBlock', kind: 'card' },
+    { key: 'partyShots', label: 'Party Shots (within Gallery)', elId: 'partyShotsBlock', kind: 'card' },
+    { key: 'musicPlayer', label: 'Background Music Player', elId: 'musicWidget', kind: 'card' },
+    { key: 'wishes', label: 'Wishes & Blessings Wall', elId: 'wishesCard', kind: 'card' },
+    { key: 'detailsTab', label: 'Details (tab)', elId: 'details', kind: 'tab', navElId: 'navDetailsLink' },
+    { key: 'photoboothTab', label: 'Photobooth (tab)', elId: 'photobooth', kind: 'tab', navElId: 'navPhotoboothLink' }
+  ];
+  var DEFAULT_HIDDEN_TOGGLES = [];
+
+  var manifest = { months: {}, monthPhotos: {}, photobooth: [], rsvps: [], wishes: [], celebrationLive: false, videoUrl: '', bannerUrl: '', bannerType: 'image', bannerVideos: [], avatarUrls: [], musicTracks: [], guestNames: [], giftMethods: [], hiddenToggles: [] };
 
   var TURNED_ONE_SWITCH = new Date('2026-10-08T00:00:00').getTime();
   function headlinePhrase(withBang) {
@@ -5621,7 +5658,8 @@ var qrcode = function() {
       guestNames: manifest.guestNames,
       avatarUrls: manifest.avatarUrls,
       musicTracks: manifest.musicTracks,
-      giftMethods: manifest.giftMethods
+      giftMethods: manifest.giftMethods,
+      hiddenToggles: manifest.hiddenToggles
     };
     return fetch('https://api.jsonbin.io/v3/b/' + GALLERY_CONFIG.jsonbinId, {
       method: 'PUT',
@@ -5629,6 +5667,53 @@ var qrcode = function() {
       body: JSON.stringify(record)
     });
   }
+
+  /* ---- Admin-controlled section visibility ---- */
+  function isToggleHidden(key) { return (manifest.hiddenToggles || []).indexOf(key) !== -1; }
+  function applyVisibility() {
+    VISIBILITY_TOGGLES.forEach(function (t) {
+      var el = document.getElementById(t.elId);
+      if (el) el.hidden = isToggleHidden(t.key);
+      if (t.navElId) {
+        var nav = document.getElementById(t.navElId);
+        if (nav) nav.hidden = isToggleHidden(t.key);
+      }
+    });
+    // giftCard and wishesCard each already have their own content-driven
+    // visibility rule (no gift methods added yet / celebration not live) --
+    // re-running those folds this toggle into that existing logic instead
+    // of the two systems fighting over the same element's hidden state.
+    if (typeof renderGiftCard === 'function') renderGiftCard();
+    if (typeof applyCelebrationState === 'function') applyCelebrationState();
+  }
+  function renderVisibilityChecklist() {
+    var wrap = document.getElementById('visibilityToggleList');
+    if (!wrap) return;
+    wrap.innerHTML = '';
+    VISIBILITY_TOGGLES.forEach(function (t) {
+      var row = document.createElement('label');
+      row.className = 'toggle-row';
+      var span = document.createElement('span');
+      span.textContent = t.label;
+      var box = document.createElement('input');
+      box.type = 'checkbox';
+      box.className = 'check-circle';
+      box.dataset.key = t.key;
+      box.checked = !isToggleHidden(t.key);
+      row.appendChild(span);
+      row.appendChild(box);
+      wrap.appendChild(row);
+    });
+  }
+  document.getElementById('visibilitySaveBtn').addEventListener('click', function () {
+    var msg = document.getElementById('visibilityMsg');
+    var boxes = Array.prototype.slice.call(document.querySelectorAll('#visibilityToggleList .check-circle'));
+    manifest.hiddenToggles = boxes.filter(function (b) { return !b.checked; }).map(function (b) { return b.dataset.key; });
+    applyVisibility();
+    var p = isConfigured() ? persistManifest() : Promise.resolve();
+    p.then(function () { msg.textContent = 'Saved.'; msg.className = 'admin-msg ok'; })
+      .catch(function () { msg.textContent = 'Could not save — try again.'; msg.className = 'admin-msg err'; });
+  });
 
   function escapeHtml(s) {
     return String(s || '').replace(/[&<>"']/g, function (c) {
@@ -5760,10 +5845,11 @@ var qrcode = function() {
     if (typeof renderPlaylistUI === 'function') renderPlaylistUI();
     if (typeof renderBannerVideoList === 'function') renderBannerVideoList();
     if (typeof renderGiftMethodsAdminList === 'function') renderGiftMethodsAdminList();
+    renderVisibilityChecklist();
   }
 
   function loadManifest() {
-    if (!isConfigured()) { renderPhotoboothGrid(); renderWishThread(); applyCelebrationState(); return; }
+    if (!isConfigured()) { renderPhotoboothGrid(); renderWishThread(); applyCelebrationState(); applyVisibility(); return; }
     fetch('https://api.jsonbin.io/v3/b/' + GALLERY_CONFIG.jsonbinId + '/latest', {
       headers: { 'X-Master-Key': GALLERY_CONFIG.jsonbinKey }
     })
@@ -5799,6 +5885,7 @@ var qrcode = function() {
         manifest.musicTracks = (record && Array.isArray(record.musicTracks)) ? record.musicTracks : [];
         manifest.guestNames = (record && Array.isArray(record.guestNames)) ? record.guestNames : [];
         manifest.giftMethods = (record && Array.isArray(record.giftMethods)) ? record.giftMethods : [];
+        manifest.hiddenToggles = (record && Array.isArray(record.hiddenToggles)) ? record.hiddenToggles : DEFAULT_HIDDEN_TOGGLES.slice();
         renderGuestNameDatalist();
         applyBannerUrl();
         renderAvatar();
@@ -5808,10 +5895,11 @@ var qrcode = function() {
         renderWishThread();
         renderVideoCard(manifest.videoUrl);
         applyCelebrationState();
+        applyVisibility();
         if (sessionStorage.getItem('emaGalleryAdmin') === '1') { revealAdminExtras(); }
         flushQueue();
       })
-      .catch(function () { renderPhotoboothGrid(); renderWishThread(); applyCelebrationState(); });
+      .catch(function () { renderPhotoboothGrid(); renderWishThread(); applyCelebrationState(); applyVisibility(); });
   }
   // Called at the very end of this script, once every DOM reference below is set up.
 
