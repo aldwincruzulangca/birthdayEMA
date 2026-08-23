@@ -703,28 +703,42 @@
   .cam-msg.ok { color: #b3e0c2; }
   .cam-msg.warn { color: var(--butter); }
 
-  .cam-live:not([hidden]), .cam-preview:not([hidden]) {
+  /* Live view breaks out of .cam-modal-inner's padded/centered flex layout
+     to cover the whole modal -- the viewfinder is always full screen, in
+     any physical orientation, instead of being reshaped/letterboxed to a
+     target ratio. Only the post-capture preview still boxes itself to the
+     photo's real aspect ratio (see #camPreviewWrap below). */
+  .cam-live:not([hidden]) {
+    position: absolute; inset: 0; display: block;
+  }
+  .cam-preview:not([hidden]) {
     width: 100%; display: flex; flex-direction: column; align-items: center; gap: 14px;
     min-height: 0;
   }
 
   .cam-frame-wrap {
     position: relative;
+    overflow: hidden;
+    background: #000;
+    touch-action: none;
+  }
+  #camFrameWrap {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+  }
+  #camPreviewWrap {
     width: 100%;
     max-width: 480px;
     flex: 0 1 auto;
     margin: 0 auto;
     border-radius: 18px;
-    overflow: hidden;
-    background: #000;
     box-shadow: 0 12px 34px rgba(0,0,0,0.55);
-    touch-action: none;
   }
-  .cam-frame-wrap[data-orientation="portrait"] { aspect-ratio: 9 / 16; max-height: 86vh; }
-  .cam-frame-wrap[data-orientation="landscape"] { aspect-ratio: 16 / 9; max-width: 640px; max-height: 68vh; }
-  /* 3-Shot Collage: viewfinder/preview matches the 4R (3:2) print ratio the
+  #camPreviewWrap[data-orientation="portrait"] { aspect-ratio: 9 / 16; max-height: 86vh; }
+  #camPreviewWrap[data-orientation="landscape"] { aspect-ratio: 16 / 9; max-width: 640px; max-height: 68vh; }
+  /* 3-Shot Collage: preview matches the 4R (3:2) print ratio the
      composited grid is actually built at, instead of the usual 16:9. */
-  .cam-frame-wrap.collage-landscape { aspect-ratio: 3 / 2; max-width: 720px; max-height: 68vh; }
+  #camPreviewWrap.collage-landscape { aspect-ratio: 3 / 2; max-width: 720px; max-height: 68vh; }
 
   .cam-frame-wrap video:not([hidden]),
   .cam-frame-wrap canvas:not([hidden]) {
@@ -757,8 +771,22 @@
   .cam-picker-toggle:not([hidden]) {
     display: flex; gap: 10px; width: 100%; max-width: 480px; justify-content: center;
   }
+  /* Frame/Sticker pickers float as a bottom sheet over the (now full-bleed)
+     viewfinder or preview, instead of pushing them out of the way. */
   .picker-block:not([hidden]) {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
+    max-height: 50vh; overflow-y: auto; box-sizing: border-box;
     display: flex; flex-direction: column; gap: 6px; width: 100%; align-items: center;
+    background: rgba(18,13,10,0.94); backdrop-filter: blur(14px);
+    padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+    border-radius: 20px 20px 0 0;
+    box-shadow: 0 -10px 30px rgba(0,0,0,0.5);
+  }
+  .picker-block-close {
+    position: absolute; top: 10px; right: 12px;
+    width: 28px; height: 28px; border-radius: 50%;
+    background: rgba(255,255,255,0.14); border: none; color: #fff;
+    font-size: 18px; line-height: 1; cursor: pointer;
   }
   .cam-preview-edit-row { text-align: center; }
   .cam-preview-edit-row .rsvp-edit-link { color: #fff; }
@@ -783,7 +811,7 @@
   .frame-color-row input[type="color"]::-webkit-color-swatch { border: none; border-radius: 50%; }
   .frame-thickness-row {
     display: flex; align-items: center; justify-content: center; gap: 10px;
-    margin-top: 10px; font-size: 12.5px; color: var(--ink-soft);
+    margin-top: 10px; font-size: 12.5px; color: rgba(255,255,255,0.75);
   }
   .frame-thickness-row input[type="range"] {
     width: 120px; accent-color: var(--c-pin); cursor: pointer;
@@ -830,9 +858,32 @@
     display: flex; align-items: center; justify-content: center;
     color: #fff; box-shadow: 0 3px 8px rgba(0,0,0,0.35);
   }
-  .cam-icon-btn svg { width: 19px; height: 19px; }
+  .cam-icon-btn svg { width: 19px; height: 19px; transition: transform 0.25s ease; }
   .cam-icon-btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
   .cam-icon-btn[aria-pressed="true"] { background: var(--c-heart); }
+  /* Viewfinder itself never rotates (see #camFrameWrap, always full-bleed) --
+     only these two essential buttons' glyphs turn to stay upright relative
+     to however the phone is actually being held. */
+  .cam-controls-overlay.tilt-landscape .cam-tilt-icon svg { transform: rotate(90deg); }
+
+  .cam-menu-panel:not([hidden]) {
+    position: absolute; left: 16px; bottom: calc(96px + env(safe-area-inset-bottom));
+    z-index: 52;
+    display: flex; flex-direction: column; gap: 2px;
+    background: rgba(20,15,12,0.88); backdrop-filter: blur(12px);
+    border-radius: 16px; padding: 6px; min-width: 190px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.45);
+  }
+  .cam-menu-item {
+    display: flex; align-items: center; gap: 10px;
+    width: 100%; padding: 10px 12px; border-radius: 10px;
+    background: none; border: none; color: #fff; font-size: 13.5px; font-weight: 600;
+    cursor: pointer; text-align: left; font-family: inherit;
+  }
+  .cam-menu-item:active { background: rgba(255,255,255,0.12); }
+  .cam-menu-item[aria-pressed="true"] { background: var(--c-heart); }
+  .cam-menu-item svg { width: 18px; height: 18px; flex: none; }
+  .cam-menu-item .emoji-icon { font-size: 15px; width: 18px; text-align: center; flex: none; }
   .cam-preview .cam-controls { gap: 12px; }
   .cam-preview .send-btn { width: auto; margin-top: 0; }
 
@@ -1763,15 +1814,30 @@
             <span id="collageProgressText"></span>
           </div>
           <div class="cam-controls-overlay">
-            <button type="button" class="cam-icon-btn" id="camCollageBtn" aria-label="3-shot collage mode" aria-pressed="false">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="18" rx="1.5"/><rect x="12" y="3" width="9" height="8" rx="1.5"/><rect x="12" y="13" width="9" height="8" rx="1.5"/></svg>
-            </button>
-            <button type="button" class="cam-icon-btn" id="camModeBtn" aria-label="Switch photo/video mode" aria-pressed="false">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 7 16 12l7 5V7Z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+            <button type="button" class="cam-icon-btn cam-tilt-icon" id="camMenuBtn" aria-label="More camera options" aria-expanded="false">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
             </button>
             <button type="button" class="shutter-btn" id="camShutterBtn" aria-label="Take photo"></button>
-            <button type="button" class="cam-icon-btn" id="camFlipBtn" aria-label="Flip camera">
+            <button type="button" class="cam-icon-btn cam-tilt-icon" id="camFlipBtn" aria-label="Flip camera">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2.1 21 6l-4 3.9"/><path d="M3 12.5v-1a4 4 0 0 1 4-4h14"/><path d="M7 21.9 3 18l4-3.9"/><path d="M21 11.5v1a4 4 0 0 1-4 4H3"/></svg>
+            </button>
+          </div>
+          <div class="cam-menu-panel" id="camMenuPanel" hidden>
+            <button type="button" class="cam-menu-item" id="camCollageBtn" aria-pressed="false">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="18" rx="1.5"/><rect x="12" y="3" width="9" height="8" rx="1.5"/><rect x="12" y="13" width="9" height="8" rx="1.5"/></svg>
+              <span>3-Shot Collage</span>
+            </button>
+            <button type="button" class="cam-menu-item" id="camModeBtn" aria-pressed="false">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 7 16 12l7 5V7Z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+              <span>Video Mode</span>
+            </button>
+            <button type="button" class="cam-menu-item" id="camMenuFrameBtn">
+              <span class="emoji-icon" aria-hidden="true">&#128444;&#65039;</span>
+              <span>Frame</span>
+            </button>
+            <button type="button" class="cam-menu-item" id="camMenuStickerBtn">
+              <span class="emoji-icon" aria-hidden="true">&#10024;</span>
+              <span>Stickers</span>
             </button>
           </div>
         </div>
@@ -1801,6 +1867,7 @@
         <button type="button" class="pillbtn p3" id="camStickerToggleBtn">&#10024; Stickers</button>
       </div>
       <div class="picker-block" id="framePickerBlock" hidden>
+        <button type="button" class="picker-block-close" id="frameBlockCloseBtn" aria-label="Close">&times;</button>
         <p class="cam-hint">Tap a frame to apply it &mdash; choose &ldquo;Classic&rdquo; for the default</p>
         <div class="sticker-tray" id="frameTray"></div>
         <div class="frame-color-row">
@@ -1815,6 +1882,7 @@
         </div>
       </div>
       <div class="picker-block" id="stickerPickerBlock" hidden>
+        <button type="button" class="picker-block-close" id="stickerBlockCloseBtn" aria-label="Close">&times;</button>
         <p class="cam-hint">Tap a sticker to add it &mdash; drag to move, pinch to resize &amp; rotate</p>
         <div class="sticker-tray" id="stickerTray"></div>
       </div>
@@ -6123,9 +6191,20 @@ var qrcode = function() {
   var camStickerToggleBtn = document.getElementById('camStickerToggleBtn');
   var framePickerBlock = document.getElementById('framePickerBlock');
   var stickerPickerBlock = document.getElementById('stickerPickerBlock');
+  var frameBlockCloseBtn = document.getElementById('frameBlockCloseBtn');
+  var stickerBlockCloseBtn = document.getElementById('stickerBlockCloseBtn');
   var frameTray = document.getElementById('frameTray');
 
   var camEditBtn = document.getElementById('camEditBtn');
+
+  // Live-view controls are tucked behind this menu instead of cluttering
+  // the (now full-screen) viewfinder -- camFrameToggleBtn/camStickerToggleBtn
+  // above stay dedicated to the post-capture preview's own "+ Edit photo"
+  // flow, which is a separate screen and keeps its own trigger buttons.
+  var camMenuBtn = document.getElementById('camMenuBtn');
+  var camMenuPanel = document.getElementById('camMenuPanel');
+  var camMenuFrameBtn = document.getElementById('camMenuFrameBtn');
+  var camMenuStickerBtn = document.getElementById('camMenuStickerBtn');
 
   var camCollageBtn = document.getElementById('camCollageBtn');
   var collageIndicator = document.getElementById('collageIndicator');
@@ -6851,11 +6930,20 @@ var qrcode = function() {
   }
 
   function refreshFrameOverlay() {
-    var w = camOrientation === 'portrait' ? 720 : 1280;
-    var h = camOrientation === 'portrait' ? 1280 : 720;
-    var src = 'data:image/svg+xml;base64,' + btoa(buildFrameSvg(w, h, selectedFrameStyle, selectedFrameColorMode, selectedFrameCustomColor, selectedFrameThicknessMm));
-    camFrameImg.src = src;
-    camPreviewFrameImg.src = src;
+    // #camFrameWrap is full-screen and can be any aspect ratio depending on
+    // the device, so the live decorative frame is built at its *actual*
+    // rendered size (object-fit:contain would otherwise letterbox a fixed
+    // 720x1280/1280x720 frame inside a differently-shaped real screen).
+    var liveRect = camFrameWrap.getBoundingClientRect();
+    var lw = Math.round(liveRect.width) || (camOrientation === 'portrait' ? 720 : 1280);
+    var lh = Math.round(liveRect.height) || (camOrientation === 'portrait' ? 1280 : 720);
+    camFrameImg.src = 'data:image/svg+xml;base64,' + btoa(buildFrameSvg(lw, lh, selectedFrameStyle, selectedFrameColorMode, selectedFrameCustomColor, selectedFrameThicknessMm));
+
+    // The preview screen still boxes itself to a fixed target ratio (see
+    // #camPreviewWrap CSS), so its overlay keeps using that same ratio.
+    var pw = camOrientation === 'portrait' ? 720 : 1280;
+    var ph = camOrientation === 'portrait' ? 1280 : 720;
+    camPreviewFrameImg.src = 'data:image/svg+xml;base64,' + btoa(buildFrameSvg(pw, ph, selectedFrameStyle, selectedFrameColorMode, selectedFrameCustomColor, selectedFrameThicknessMm));
   }
   refreshFrameOverlay();
 
@@ -6919,6 +7007,27 @@ var qrcode = function() {
     var show = stickerPickerBlock.hidden;
     hidePickers();
     stickerPickerBlock.hidden = !show;
+  });
+  frameBlockCloseBtn.addEventListener('click', function () { framePickerBlock.hidden = true; });
+  stickerBlockCloseBtn.addEventListener('click', function () { stickerPickerBlock.hidden = true; });
+
+  // Live-view equivalents of the two buttons above, reached from the menu
+  // instead of a toggle row (the viewfinder behind them is full-screen now).
+  camMenuFrameBtn.addEventListener('click', function () {
+    var show = framePickerBlock.hidden;
+    hidePickers();
+    framePickerBlock.hidden = !show;
+    camMenuPanel.hidden = true;
+  });
+  camMenuStickerBtn.addEventListener('click', function () {
+    var show = stickerPickerBlock.hidden;
+    hidePickers();
+    stickerPickerBlock.hidden = !show;
+    camMenuPanel.hidden = true;
+  });
+  camMenuBtn.addEventListener('click', function () {
+    camMenuPanel.hidden = !camMenuPanel.hidden;
+    camMenuBtn.setAttribute('aria-expanded', String(!camMenuPanel.hidden));
   });
 
   function bringToFront(el) { el.style.zIndex = String(++stickerZ); }
@@ -7777,8 +7886,11 @@ var qrcode = function() {
   }
 
   function refreshLiveFrameSize() {
-    var collageRatio = (camCollageMode && camOrientation === 'landscape') ? 3 / 2 : null;
-    fitCamFrame(camFrameWrap, 96, collageRatio);
+    // #camFrameWrap is always full-screen now (see its CSS) -- clears any
+    // inline width/height an older call may have left behind so the CSS
+    // full-bleed rule isn't shadowed by a leftover inline style.
+    camFrameWrap.style.width = '';
+    camFrameWrap.style.height = '';
   }
   function refreshPreviewFrameSize() {
     var collageRatio = lastCaptureType === 'collage' ? 3 / 2 : null;
@@ -7860,7 +7972,6 @@ var qrcode = function() {
         camMsg.textContent = '';
         applyPhysicalOrientation();
         refreshLiveFrameSize();
-        camPickerToggle.hidden = false;
         hidePickers();
         setStickerTarget(camFrameWrap, activeStickers);
       })
@@ -7878,22 +7989,21 @@ var qrcode = function() {
     startCamera();
   });
 
-  // Applies whichever way the phone is actually being held right now. While
-  // in 3-Shot Collage, the landscape viewfinder is sized to the 4R (3:2)
-  // print ratio instead of the usual 16:9, so what's on screen while
-  // framing shots matches the composited grid's own proportions.
+  // Tracks whichever way the phone is actually being held right now. The
+  // viewfinder doesn't reshape either way (always full screen -- see
+  // #camFrameWrap), this just rotates the menu/flip icon glyphs to stay
+  // upright and keeps camOrientation current for capture/frame sizing.
+  var camControlsOverlay = document.querySelector('.cam-controls-overlay');
   function applyPhysicalOrientation() {
     var next = window.matchMedia('(orientation: landscape)').matches ? 'landscape' : 'portrait';
-    var collageLandscape = camCollageMode && next === 'landscape';
-    camFrameWrap.classList.toggle('collage-landscape', collageLandscape);
-    camPreviewWrap.classList.toggle('collage-landscape', collageLandscape);
+    // The viewfinder itself stays full-screen either way (see #camFrameWrap)
+    // -- only the menu/flip icon glyphs rotate to stay upright for however
+    // the phone is actually being held.
+    camControlsOverlay.classList.toggle('tilt-landscape', next === 'landscape');
     if (next === camOrientation) return;
     camOrientation = next;
-    camFrameWrap.setAttribute('data-orientation', camOrientation);
     clearStickers();
     refreshFrameOverlay();
-    refreshLiveFrameSize();
-    renderFrameTray();
   }
   window.matchMedia('(orientation: landscape)').addEventListener('change', function () {
     if (camLive.hidden) return; // only react while the live camera view is open
@@ -7916,8 +8026,15 @@ var qrcode = function() {
   }
 
   function capturePhoto() {
-    var w = camOrientation === 'portrait' ? 720 : 1280;
-    var h = camOrientation === 'portrait' ? 1280 : 720;
+    // Captures at whatever aspect ratio the full-screen viewfinder is
+    // actually showing right now (maximized shot, no fixed portrait/
+    // landscape target) -- long edge held to 1280 for a consistent output
+    // resolution regardless of the device's real screen size.
+    var wrapRect = camFrameWrap.getBoundingClientRect();
+    var wrapRatio = (wrapRect.width && wrapRect.height) ? wrapRect.width / wrapRect.height : (camOrientation === 'portrait' ? 9 / 16 : 16 / 9);
+    var w, h;
+    if (wrapRatio >= 1) { w = 1280; h = Math.round(1280 / wrapRatio); }
+    else { h = 1280; w = Math.round(1280 * wrapRatio); }
     camCanvas.width = w;
     camCanvas.height = h;
     var ctx = camCanvas.getContext('2d');
@@ -8124,7 +8241,6 @@ var qrcode = function() {
       uploadedImageRatio = null;
       camCollageMode = false;
       camCollageBtn.setAttribute('aria-pressed', 'false');
-      camFrameWrap.classList.remove('collage-landscape');
       collageShots = [];
       collageIndicator.hidden = true;
 
@@ -8267,6 +8383,7 @@ var qrcode = function() {
     camModeBtn.setAttribute('aria-pressed', camCaptureMode === 'video' ? 'true' : 'false');
     camShutterBtn.classList.toggle('video-mode', camCaptureMode === 'video');
     camShutterBtn.setAttribute('aria-label', camCaptureMode === 'video' ? 'Start recording' : 'Take photo');
+    camMenuPanel.hidden = true;
   });
 
   camCollageBtn.addEventListener('click', function () {
@@ -8279,11 +8396,7 @@ var qrcode = function() {
       camShutterBtn.classList.remove('video-mode');
       camShutterBtn.setAttribute('aria-label', 'Take photo');
     }
-    // The composited output is always landscape regardless of how it was
-    // shot (each shot gets cover-cropped to 16:9 either way) -- but tilt
-    // the phone sideways while shooting and the viewfinder switches to the
-    // 4R (3:2) collage framing instead of the usual 16:9.
-    applyPhysicalOrientation();
+    camMenuPanel.hidden = true;
   });
 
   camShutterBtn.addEventListener('click', function () {
