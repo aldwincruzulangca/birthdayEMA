@@ -801,7 +801,8 @@
      canvas, these are DOM-only chrome) so the frame can use nearly the full modal. */
   .cam-controls-overlay {
     position: absolute; left: 0; right: 0; bottom: 0;
-    display: flex; align-items: center; justify-content: center; gap: 22px;
+    display: flex; align-items: center; justify-content: center; gap: 14px;
+    flex-wrap: wrap;
     padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
     background: linear-gradient(to top, rgba(0,0,0,0.5), transparent);
     z-index: 50;
@@ -846,6 +847,15 @@
   }
   @keyframes recPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
   @media (prefers-reduced-motion: reduce) { .rec-dot { animation: none; } }
+
+  .collage-indicator:not([hidden]) {
+    position: absolute; top: 14px; right: 14px; z-index: 51;
+    background: rgba(0,0,0,0.5); color: #fff; font-size: 12px; font-weight: 700;
+    padding: 6px 12px; border-radius: 999px;
+    border: 1.5px solid transparent;
+    background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), linear-gradient(90deg, #f0a0b8, #f8c99a, #f3dd94, #a4cdec, #c6b6e8);
+    background-origin: border-box; background-clip: padding-box, border-box;
+  }
 
   /* ---- Closing card ---- */
   .closing-card {
@@ -1745,7 +1755,13 @@
             <span class="rec-dot"></span>
             <span id="recTimer">0:00</span> / 1:00
           </div>
+          <div class="collage-indicator" id="collageIndicator" hidden>
+            <span id="collageProgressText"></span>
+          </div>
           <div class="cam-controls-overlay">
+            <button type="button" class="cam-icon-btn" id="camCollageBtn" aria-label="3-shot collage mode" aria-pressed="false">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="18" rx="1.5"/><rect x="12" y="3" width="9" height="8" rx="1.5"/><rect x="12" y="13" width="9" height="8" rx="1.5"/></svg>
+            </button>
             <button type="button" class="cam-icon-btn" id="camModeBtn" aria-label="Switch photo/video mode" aria-pressed="false">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 7 16 12l7 5V7Z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
             </button>
@@ -6111,11 +6127,19 @@ var qrcode = function() {
 
   var camEditBtn = document.getElementById('camEditBtn');
 
+  var camCollageBtn = document.getElementById('camCollageBtn');
+  var collageIndicator = document.getElementById('collageIndicator');
+  var collageProgressText = document.getElementById('collageProgressText');
+
   var camStream = null;
   var camFacing = 'user';
   var camOrientation = 'portrait';
   var lastCaptureBlob = null;
   var lastCaptureType = 'photo';
+  var camCollageMode = false;
+  var collageShots = [];
+  var COLLAGE_SHOT_COUNT = 3;
+  var COLLAGE_SHOT_LABELS = ['Primary shot', 'Secondary shot 1', 'Secondary shot 2'];
   var activeStickers = [];
   var previewStickers = [];
 
@@ -7902,13 +7926,177 @@ var qrcode = function() {
     }, 'image/jpeg', 0.92);
   }
 
-  function finishEnterPreviewFromCanvas(saveLabel) {
-    lastCaptureType = 'photo';
+  function finishEnterPreviewFromCanvas(saveLabel, captureType) {
+    lastCaptureType = captureType || 'photo';
     camCanvas.hidden = false;
     camPreviewVideo.hidden = true;
     camEditRow.hidden = false;
     camSaveLabel.textContent = saveLabel;
     enterPreview();
+  }
+
+  /* ---- 3-Shot Collage: primary + 2 secondary shots, all cropped to 16:9,
+     composited into one 4R-sized (1200x1800, 300dpi 4x6in) portrait image.
+     Layout is fixed by area share -- primary 35%, the two secondaries 25%
+     each (a shared 50%-tall row split down the middle), and a 15% band for
+     a "Happy Birthday Ema" graphic -- with a soft rainbow wash filling the
+     margins/gutters and a rainbow-gradient stroke around each of the three
+     photo tiles. Skips bakeFrameAndCaption() entirely (see camSaveBtn) --
+     this composite is already fully styled, so the selected decorative
+     frame doesn't get baked on top of it too. ---- */
+  function updateCollageProgressUI() {
+    if (!camCollageMode) { collageIndicator.hidden = true; return; }
+    var n = collageShots.length;
+    collageIndicator.hidden = false;
+    collageProgressText.textContent = n >= COLLAGE_SHOT_COUNT
+      ? 'Compositing…'
+      : 'Shot ' + (n + 1) + ' of ' + COLLAGE_SHOT_COUNT + ' — ' + COLLAGE_SHOT_LABELS[n];
+  }
+
+  function resetCollageState() {
+    collageShots = [];
+    updateCollageProgressUI();
+  }
+
+  function captureCollageShot() {
+    var vw = camVideo.videoWidth, vh = camVideo.videoHeight;
+    if (!vw || !vh) return;
+    var shotCanvas = document.createElement('canvas');
+    shotCanvas.width = vw;
+    shotCanvas.height = vh;
+    var sctx = shotCanvas.getContext('2d');
+    sctx.save();
+    if (camFacing === 'user') {
+      sctx.translate(vw, 0);
+      sctx.scale(-1, 1);
+    }
+    sctx.drawImage(camVideo, 0, 0, vw, vh);
+    sctx.restore();
+    collageShots.push(shotCanvas);
+    updateCollageProgressUI();
+    if (collageShots.length >= COLLAGE_SHOT_COUNT) {
+      composeCollage();
+    }
+  }
+
+  function collageRoundRectPath(ctx, x, y, w, h, r) {
+    r = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+  function collageRainbowGradient(ctx, x0, y0, x1, y1) {
+    var g = ctx.createLinearGradient(x0, y0, x1, y1);
+    g.addColorStop(0, '#f0a0b8');
+    g.addColorStop(0.25, '#f8c99a');
+    g.addColorStop(0.5, '#f3dd94');
+    g.addColorStop(0.75, '#a4cdec');
+    g.addColorStop(1, '#c6b6e8');
+    return g;
+  }
+  function drawCollageTile(ctx, shotCanvas, x, y, w, h) {
+    var r = w * 0.025;
+    var strokeW = Math.max(4, w * 0.014);
+    var targetRatio = 16 / 9;
+    var sw = shotCanvas.width, sh = shotCanvas.height;
+    var srcRatio = sw / sh;
+    var cropW, cropH, cropX, cropY;
+    if (srcRatio > targetRatio) {
+      cropH = sh; cropW = sh * targetRatio; cropX = (sw - cropW) / 2; cropY = 0;
+    } else {
+      cropW = sw; cropH = sw / targetRatio; cropX = 0; cropY = (sh - cropH) / 2;
+    }
+    ctx.save();
+    collageRoundRectPath(ctx, x, y, w, h, r);
+    ctx.clip();
+    ctx.drawImage(shotCanvas, cropX, cropY, cropW, cropH, x, y, w, h);
+    ctx.restore();
+
+    ctx.save();
+    collageRoundRectPath(ctx, x + strokeW / 2, y + strokeW / 2, w - strokeW, h - strokeW, Math.max(0, r - strokeW / 2));
+    ctx.lineWidth = strokeW;
+    ctx.strokeStyle = collageRainbowGradient(ctx, x, y, x + w, y + h);
+    ctx.stroke();
+    ctx.restore();
+  }
+  function drawHappyBirthdayBand(ctx, x, y, w, h) {
+    ctx.save();
+    collageRoundRectPath(ctx, x, y, w, h, w * 0.02);
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.fill();
+    ctx.restore();
+
+    var palette = ['#f0a0b8', '#f8c99a', '#f3dd94', '#a4cdec', '#c6b6e8'];
+    for (var i = 0; i < 16; i++) {
+      var px = x + Math.random() * w, py = y + Math.random() * h;
+      ctx.fillStyle = palette[i % palette.length];
+      ctx.beginPath();
+      ctx.arc(px, py, w * 0.005 + Math.random() * w * 0.005, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#3a332c';
+    ctx.font = '700 ' + Math.round(h * 0.32) + 'px "Baloo Deco", sans-serif';
+    ctx.fillText('Happy Birthday!', x + w / 2, y + h * 0.38);
+    ctx.fillStyle = '#c9789a';
+    ctx.font = '600 ' + Math.round(h * 0.3) + 'px "Estre Script", cursive';
+    ctx.fillText('Ema', x + w / 2, y + h * 0.74);
+  }
+
+  function composeCollage() {
+    updateCollageProgressUI();
+    document.fonts.ready.then(function () {
+      var W = 1200, H = 1800; // 4R print size, 300dpi 4x6in, portrait
+      camCanvas.width = W;
+      camCanvas.height = H;
+      var ctx = camCanvas.getContext('2d');
+
+      var bg = ctx.createLinearGradient(0, 0, W, H);
+      bg.addColorStop(0, '#f9dde2');
+      bg.addColorStop(0.25, '#fbe9d2');
+      bg.addColorStop(0.5, '#f8f2d6');
+      bg.addColorStop(0.75, '#dcebf4');
+      bg.addColorStop(1, '#e7dff1');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, W, H);
+
+      var pad = Math.round(W * 0.035);
+      var gap = Math.round(W * 0.03);
+
+      var primaryBandH = Math.round(H * 0.35);
+      var secondaryBandH = Math.round(H * 0.50);
+      var bottomBandH = H - primaryBandH - secondaryBandH;
+
+      var primW = W - pad * 2, primH = primaryBandH - pad - gap / 2;
+      drawCollageTile(ctx, collageShots[0], pad, pad, primW, primH);
+
+      var secY = primaryBandH + gap / 2;
+      var secH = secondaryBandH - gap;
+      var secW = (W - pad * 2 - gap) / 2;
+      drawCollageTile(ctx, collageShots[1], pad, secY, secW, secH);
+      drawCollageTile(ctx, collageShots[2], pad + secW + gap, secY, secW, secH);
+
+      var bandY = primaryBandH + secondaryBandH + gap / 2;
+      var bandH = bottomBandH - pad - gap / 2;
+      drawHappyBirthdayBand(ctx, pad, bandY, W - pad * 2, bandH);
+
+      uploadedImageRatio = null;
+      camCollageMode = false;
+      camCollageBtn.setAttribute('aria-pressed', 'false');
+      collageShots = [];
+      collageIndicator.hidden = true;
+
+      camCanvas.toBlob(function (blob) {
+        lastCaptureBlob = blob;
+        finishEnterPreviewFromCanvas('Save Collage', 'collage');
+      }, 'image/jpeg', 0.92);
+    });
   }
 
   // Draws a phone-gallery photo onto the shared capture canvas so it can go
@@ -8047,7 +8235,23 @@ var qrcode = function() {
     camShutterBtn.setAttribute('aria-label', camCaptureMode === 'video' ? 'Start recording' : 'Take photo');
   });
 
+  camCollageBtn.addEventListener('click', function () {
+    camCollageMode = !camCollageMode;
+    camCollageBtn.setAttribute('aria-pressed', String(camCollageMode));
+    resetCollageState();
+    if (camCollageMode && camCaptureMode === 'video') {
+      camCaptureMode = 'photo';
+      camModeBtn.setAttribute('aria-pressed', 'false');
+      camShutterBtn.classList.remove('video-mode');
+      camShutterBtn.setAttribute('aria-label', 'Take photo');
+    }
+  });
+
   camShutterBtn.addEventListener('click', function () {
+    if (camCollageMode) {
+      captureCollageShot();
+      return;
+    }
     if (camCaptureMode === 'video') {
       if (mediaRecorder && mediaRecorder.state === 'recording') {
         stopRecording();
@@ -8072,6 +8276,7 @@ var qrcode = function() {
     camPickerToggle.hidden = true;
     hidePickers();
     uploadedImageRatio = null;
+    resetCollageState();
     if (camPreviewVideo.src) { URL.revokeObjectURL(camPreviewVideo.src); camPreviewVideo.src = ''; }
     camPreviewVideo.hidden = true;
     camCanvas.hidden = false;
@@ -8101,7 +8306,7 @@ var qrcode = function() {
       queueOrUploadPhotobooth(blob, ts, lastCaptureType);
     }
 
-    if (lastCaptureType === 'photo') {
+    if (lastCaptureType === 'photo' || lastCaptureType === 'collage') {
       var ctx = camCanvas.getContext('2d');
       if (previewStickers.length) {
         drawStickersToCanvas(ctx, camPreviewWrap, previewStickers, camCanvas.width, camCanvas.height);
@@ -8109,12 +8314,23 @@ var qrcode = function() {
       }
       camPickerToggle.hidden = true;
       hidePickers();
-      bakeFrameAndCaption(ctx, camCanvas.width, camCanvas.height, function () {
+      // Collage composites are already fully styled (rainbow wash, per-tile
+      // strokes, Happy Birthday band) -- baking the selected decorative
+      // frame on top too would just compete with that, so only 'photo'
+      // goes through bakeFrameAndCaption().
+      if (lastCaptureType === 'photo') {
+        bakeFrameAndCaption(ctx, camCanvas.width, camCanvas.height, function () {
+          camCanvas.toBlob(function (blob) {
+            lastCaptureBlob = blob;
+            finishSave(blob);
+          }, 'image/jpeg', 0.92);
+        });
+      } else {
         camCanvas.toBlob(function (blob) {
           lastCaptureBlob = blob;
           finishSave(blob);
         }, 'image/jpeg', 0.92);
-      });
+      }
     } else {
       finishSave(lastCaptureBlob);
     }
