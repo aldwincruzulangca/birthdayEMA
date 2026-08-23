@@ -736,14 +736,25 @@
   }
   #camPreviewWrap[data-orientation="portrait"] { aspect-ratio: 9 / 16; max-height: 86vh; }
   #camPreviewWrap[data-orientation="landscape"] { aspect-ratio: 16 / 9; max-width: 640px; max-height: 68vh; }
-  /* 4-Shot Collage: preview matches the 4R (3:2) print ratio the
-     composited grid is actually built at, instead of the usual 16:9. */
-  #camPreviewWrap.collage-landscape { aspect-ratio: 3 / 2; max-width: 720px; max-height: 68vh; }
+  /* 4-Shot Collage, phone actually tilted sideways: the edit view goes
+     full screen (real device landscape, matching .cam-live's own
+     full-bleed treatment) instead of sitting in a small centered box --
+     this is genuine physical-tilt landscape, not a rotated rectangle
+     shown inside a still-portrait-shaped screen. */
+  #camPreviewWrap.collage-landscape {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    max-width: none; max-height: none; aspect-ratio: auto;
+    margin: 0; border-radius: 0; box-shadow: none;
+  }
   /* Upright phone reviewing a collage: keep the normal portrait box, but
      show the whole (landscape-shaped) photo letterboxed instead of the
      usual object-fit:cover crop -- cropping a 3:2 image into a 9:16 box
-     would hide most of it. */
-  #camPreviewWrap.collage-portrait canvas { object-fit: contain; background: #000; }
+     would hide most of it. Same letterboxing applies full-screen once
+     tilted, since a real device's landscape viewport is rarely an exact
+     3:2 match for the composite. */
+  #camPreviewWrap.collage-portrait canvas,
+  #camPreviewWrap.collage-landscape canvas { object-fit: contain; background: #000; }
   .collage-tilt-hint { margin-top: -4px; }
 
   .cam-frame-wrap video:not([hidden]),
@@ -793,6 +804,17 @@
     width: 28px; height: 28px; border-radius: 50%;
     background: rgba(255,255,255,0.14); border: none; color: #fff;
     font-size: 18px; line-height: 1; cursor: pointer;
+  }
+  /* Edit/Retake/Save float directly over the preview image (like the live
+     viewfinder's own controls) instead of sitting in a row below it -- that
+     keeps them reachable even when the preview goes full screen (see
+     #camPreviewWrap.collage-landscape above). z-index sits under
+     .picker-block's 60 so an open Frame/Sticker sheet still layers on top. */
+  .cam-preview-floating-controls {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 58;
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+    padding: 14px 16px calc(14px + env(safe-area-inset-bottom));
+    background: linear-gradient(to top, rgba(0,0,0,0.55), transparent);
   }
   .cam-preview-edit-row { text-align: center; }
   .cam-preview-edit-row .rsvp-edit-link { color: #fff; }
@@ -1860,23 +1882,28 @@
           <img class="cam-frame-overlay" id="camPreviewFrameImg" alt="" aria-hidden="true">
         </div>
         <p class="cam-hint collage-tilt-hint" id="collageTiltHint" hidden>&#128241; Tilt your phone sideways for the full 4-in-1 editing view (frames, dragging the photo)</p>
-        <div class="cam-preview-edit-row" id="camEditRow">
-          <button type="button" class="rsvp-edit-link" id="camEditBtn">+ Edit photo</button>
+        <!-- Floats over the preview image itself (position:fixed, see CSS)
+             instead of pushing it out of the way, so a full-screen collage
+             edit view still has Edit/Retake/Save reachable on top of it. -->
+        <div class="cam-preview-floating-controls" id="camPreviewFloatingControls">
+          <div class="cam-preview-edit-row" id="camEditRow">
+            <button type="button" class="rsvp-edit-link" id="camEditBtn">+ Edit photo</button>
+          </div>
+          <div class="cam-controls">
+            <button type="button" class="pillbtn p3" id="camRetakeBtn">Retake</button>
+            <button type="button" class="send-btn" id="camSaveBtn">
+              <span id="camSaveLabel">Save Photo</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            </button>
+          </div>
+          <p class="cam-msg" id="camSaveMsg"></p>
+          <div class="cam-picker-toggle" id="camPickerToggle" hidden>
+            <button type="button" class="pillbtn p3" id="camFrameToggleBtn">&#128444;&#65039; Frame</button>
+            <button type="button" class="pillbtn p3" id="camStickerToggleBtn">&#10024; Stickers</button>
+          </div>
         </div>
-        <div class="cam-controls">
-          <button type="button" class="pillbtn p3" id="camRetakeBtn">Retake</button>
-          <button type="button" class="send-btn" id="camSaveBtn">
-            <span id="camSaveLabel">Save Photo</span>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-          </button>
-        </div>
-        <p class="cam-msg" id="camSaveMsg"></p>
       </div>
 
-      <div class="cam-picker-toggle" id="camPickerToggle" hidden>
-        <button type="button" class="pillbtn p3" id="camFrameToggleBtn">&#128444;&#65039; Frame</button>
-        <button type="button" class="pillbtn p3" id="camStickerToggleBtn">&#10024; Stickers</button>
-      </div>
       <div class="picker-block" id="framePickerBlock" hidden>
         <button type="button" class="picker-block-close" id="frameBlockCloseBtn" aria-label="Close">&times;</button>
         <p class="cam-hint">Tap a frame to apply it &mdash; choose &ldquo;Classic&rdquo; for the default</p>
@@ -7981,6 +8008,14 @@ var qrcode = function() {
     camFrameWrap.style.height = '';
   }
   function refreshPreviewFrameSize() {
+    if (lastCaptureType === 'collage' && camOrientation === 'landscape') {
+      // Full screen once tilted (see #camPreviewWrap.collage-landscape) --
+      // clear any inline size a previous portrait/photo fit left behind
+      // instead of fighting the CSS full-bleed rule with a fixed pixel size.
+      camPreviewWrap.style.width = '';
+      camPreviewWrap.style.height = '';
+      return;
+    }
     var collageRatio = lastCaptureType === 'collage' ? 3 / 2 : null;
     fitCamFrame(camPreviewWrap, 88, collageRatio || uploadedImageRatio);
   }
