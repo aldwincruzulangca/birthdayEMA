@@ -778,6 +778,14 @@
   }
   .frame-color-row input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; border-radius: 50%; }
   .frame-color-row input[type="color"]::-webkit-color-swatch { border: none; border-radius: 50%; }
+  .frame-thickness-row {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    margin-top: 10px; font-size: 12.5px; color: var(--ink-soft);
+  }
+  .frame-thickness-row input[type="range"] {
+    width: 120px; accent-color: var(--c-pin); cursor: pointer;
+  }
+  .frame-thickness-row span { min-width: 42px; text-align: left; font-variant-numeric: tabular-nums; }
 
   .wish-photo-row { display: flex; gap: 10px; flex-wrap: wrap; margin: 4px 0 10px; }
   .wish-photo-row .pillbtn { flex: 1 1 auto; font-size: 12.5px; }
@@ -1782,6 +1790,11 @@
           <button type="button" class="pillbtn p3" id="frameColorRainbowBtn" aria-pressed="true">&#127752; Rainbow</button>
           <button type="button" class="pillbtn p3" id="frameColorCustomBtn" aria-pressed="false">&#127912; Custom</button>
           <input type="color" id="frameCustomColorInput" value="#f0a0b8" hidden aria-label="Custom frame color">
+        </div>
+        <div class="frame-thickness-row">
+          <label for="frameThicknessSlider">Thickness</label>
+          <input type="range" id="frameThicknessSlider" min="0.3" max="1.5" step="0.1" value="0.6" aria-label="Frame border thickness">
+          <span id="frameThicknessValue">0.6mm</span>
         </div>
       </div>
       <div class="picker-block" id="stickerPickerBlock" hidden>
@@ -6153,14 +6166,16 @@ var qrcode = function() {
   ];
 
   var FRAME_LIBRARY = [
-    { id: 'classic', label: 'Classic', style: 'straight', orientation: 'both' },
-    { id: 'wave', label: 'Wave', style: 'wave', orientation: 'both' },
-    { id: 'dashed', label: 'Dashed', style: 'dashed', orientation: 'both' },
-    { id: 'dashdot', label: 'Dash-Dot', style: 'dashdot', orientation: 'both' }
+    { id: 'classic', label: 'Classic', style: 'straight' },
+    { id: 'wave', label: 'Wave', style: 'wave' },
+    { id: 'dashed', label: 'Dashed', style: 'dashed' },
+    { id: 'dashdot', label: 'Dash-Dot', style: 'dashdot' }
   ];
   var selectedFrameStyle = 'straight';
   var selectedFrameColorMode = 'rainbow'; // 'rainbow' | 'custom'
   var selectedFrameCustomColor = '#f0a0b8';
+  var FRAME_THICKNESS_MIN_MM = 0.3, FRAME_THICKNESS_MAX_MM = 1.5, FRAME_THICKNESS_DEFAULT_MM = 0.6;
+  var selectedFrameThicknessMm = FRAME_THICKNESS_DEFAULT_MM;
 
   // Walks the four straight edges of a rounded rect and offsets each one
   // with a sine wave (zero-crossing at both ends of every edge, so it always
@@ -6258,12 +6273,16 @@ var qrcode = function() {
     return stem + leaf1 + leaf2 + petals + center;
   }
 
-  function buildFrameSvg(w, h, style, colorMode, customColor) {
+  function buildFrameSvg(w, h, style, colorMode, customColor, thicknessMm) {
     style = style || 'straight';
     var m = Math.min(w, h);
     var inset = m * 0.025;
     var rx = m * 0.07;
-    var strokeW = m * 0.006;   // an elegant, thin border (~1.5mm at photo scale)
+    // thicknessMm is a relative dial (0.3–1.5), not a real physical unit —
+    // /100 keeps the 0.6mm default lined up with the old fixed m*0.006
+    // "elegant, thin border" look, same scale the flourish stroke below
+    // was already tuned against.
+    var strokeW = m * ((thicknessMm != null ? thicknessMm : FRAME_THICKNESS_DEFAULT_MM) / 100);
     var flourishW = m * 0.002; // the corner flowers are drawn even finer (~0.5mm)
     var rectX = inset, rectY = inset, rectW = w - 2 * inset, rectH = h - 2 * inset;
     var colors = frameColorDefs(colorMode, customColor);
@@ -6297,7 +6316,7 @@ var qrcode = function() {
   function refreshFrameOverlay() {
     var w = camOrientation === 'portrait' ? 720 : 1280;
     var h = camOrientation === 'portrait' ? 1280 : 720;
-    var src = 'data:image/svg+xml;base64,' + btoa(buildFrameSvg(w, h, selectedFrameStyle, selectedFrameColorMode, selectedFrameCustomColor));
+    var src = 'data:image/svg+xml;base64,' + btoa(buildFrameSvg(w, h, selectedFrameStyle, selectedFrameColorMode, selectedFrameCustomColor, selectedFrameThicknessMm));
     camFrameImg.src = src;
     camPreviewFrameImg.src = src;
   }
@@ -6309,14 +6328,11 @@ var qrcode = function() {
   }
   function renderFrameTray() {
     frameTray.innerHTML = '';
-    var available = FRAME_LIBRARY.filter(function (item) {
-      return item.orientation === 'both' || item.orientation === camOrientation;
-    });
-    available.forEach(function (item) {
+    FRAME_LIBRARY.forEach(function (item) {
       var thumb = document.createElement('button');
       thumb.type = 'button';
       thumb.className = 'sticker-thumb' + (item.style === selectedFrameStyle ? ' is-selected' : '');
-      var thumbSrc = 'data:image/svg+xml;base64,' + btoa(buildFrameSvg(60, 60, item.style, selectedFrameColorMode, selectedFrameCustomColor));
+      var thumbSrc = 'data:image/svg+xml;base64,' + btoa(buildFrameSvg(60, 60, item.style, selectedFrameColorMode, selectedFrameCustomColor, selectedFrameThicknessMm));
       thumb.innerHTML = '<img src="' + thumbSrc + '" alt="' + item.label + '">';
       thumb.title = item.label;
       thumb.addEventListener('click', function () {
@@ -6326,12 +6342,6 @@ var qrcode = function() {
       });
       frameTray.appendChild(thumb);
     });
-    if (!available.length) {
-      var note = document.createElement('p');
-      note.className = 'cam-hint';
-      note.textContent = 'No ' + camOrientation + ' frames yet — using Classic.';
-      frameTray.appendChild(note);
-    }
   }
   renderFrameTray();
 
@@ -6350,6 +6360,15 @@ var qrcode = function() {
   frameColorCustomBtn.addEventListener('click', function () { setFrameColorMode('custom'); });
   frameCustomColorInput.addEventListener('input', function () {
     selectedFrameCustomColor = frameCustomColorInput.value;
+    refreshFrameOverlay();
+    renderFrameTray();
+  });
+
+  var frameThicknessSlider = document.getElementById('frameThicknessSlider');
+  var frameThicknessValue = document.getElementById('frameThicknessValue');
+  frameThicknessSlider.addEventListener('input', function () {
+    selectedFrameThicknessMm = parseFloat(frameThicknessSlider.value);
+    frameThicknessValue.textContent = selectedFrameThicknessMm.toFixed(1) + 'mm';
     refreshFrameOverlay();
     renderFrameTray();
   });
@@ -7410,7 +7429,7 @@ var qrcode = function() {
   // Frame + caption are baked on top at final-save time (not at shutter press) so
   // the frame stays swappable both before the shot (live tray) and after (edit tray).
   function bakeFrameAndCaption(ctx, w, h, cb) {
-    var frameSrc = 'data:image/svg+xml;base64,' + btoa(buildFrameSvg(w, h, selectedFrameStyle, selectedFrameColorMode, selectedFrameCustomColor));
+    var frameSrc = 'data:image/svg+xml;base64,' + btoa(buildFrameSvg(w, h, selectedFrameStyle, selectedFrameColorMode, selectedFrameCustomColor, selectedFrameThicknessMm));
     var frameImg = new Image();
     frameImg.onload = function () {
       ctx.drawImage(frameImg, 0, 0, w, h);
