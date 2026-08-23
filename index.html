@@ -739,6 +739,12 @@
   /* 3-Shot Collage: preview matches the 4R (3:2) print ratio the
      composited grid is actually built at, instead of the usual 16:9. */
   #camPreviewWrap.collage-landscape { aspect-ratio: 3 / 2; max-width: 720px; max-height: 68vh; }
+  /* Upright phone reviewing a collage: keep the normal portrait box, but
+     show the whole (landscape-shaped) photo letterboxed instead of the
+     usual object-fit:cover crop -- cropping a 3:2 image into a 9:16 box
+     would hide most of it. */
+  #camPreviewWrap.collage-portrait canvas { object-fit: contain; background: #000; }
+  .collage-tilt-hint { margin-top: -4px; }
 
   .cam-frame-wrap video:not([hidden]),
   .cam-frame-wrap canvas:not([hidden]) {
@@ -801,6 +807,10 @@
   .sticker-thumb.is-selected { border-color: var(--c-pin); box-shadow: 0 0 0 2px var(--c-pin); }
 
   .cam-hint { font-size: 11px; color: rgba(255,255,255,0.6); margin: 0; text-align: center; }
+  .collage-tile-label {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+    color: rgba(255,255,255,0.75); margin: 6px 0 0; align-self: flex-start;
+  }
 
   .frame-color-row { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
   .frame-color-row input[type="color"] {
@@ -1849,6 +1859,7 @@
           <video id="camPreviewVideo" controls playsinline hidden></video>
           <img class="cam-frame-overlay" id="camPreviewFrameImg" alt="" aria-hidden="true">
         </div>
+        <p class="cam-hint collage-tilt-hint" id="collageTiltHint" hidden>&#128241; Tilt your phone sideways for the full 3-in-1 editing view (frames, dragging the photo)</p>
         <div class="cam-preview-edit-row" id="camEditRow">
           <button type="button" class="rsvp-edit-link" id="camEditBtn">+ Edit photo</button>
         </div>
@@ -1885,6 +1896,16 @@
         <button type="button" class="picker-block-close" id="stickerBlockCloseBtn" aria-label="Close">&times;</button>
         <p class="cam-hint">Tap a sticker to add it &mdash; drag to move, pinch to resize &amp; rotate</p>
         <div class="sticker-tray" id="stickerTray"></div>
+      </div>
+      <div class="picker-block" id="collageFramePickerBlock" hidden>
+        <button type="button" class="picker-block-close" id="collageFrameBlockCloseBtn" aria-label="Close">&times;</button>
+        <p class="cam-hint">Tap a frame for each photo &mdash; Sparkle Stars is the default</p>
+        <p class="collage-tile-label">Primary</p>
+        <div class="sticker-tray" id="collageFrameTray0"></div>
+        <p class="collage-tile-label">Secondary 1</p>
+        <div class="sticker-tray" id="collageFrameTray1"></div>
+        <p class="collage-tile-label">Secondary 2</p>
+        <div class="sticker-tray" id="collageFrameTray2"></div>
       </div>
     </div>
   </div>
@@ -6194,6 +6215,13 @@ var qrcode = function() {
   var frameBlockCloseBtn = document.getElementById('frameBlockCloseBtn');
   var stickerBlockCloseBtn = document.getElementById('stickerBlockCloseBtn');
   var frameTray = document.getElementById('frameTray');
+  var collageFramePickerBlock = document.getElementById('collageFramePickerBlock');
+  var collageFrameBlockCloseBtn = document.getElementById('collageFrameBlockCloseBtn');
+  var collageFrameTrays = [
+    document.getElementById('collageFrameTray0'),
+    document.getElementById('collageFrameTray1'),
+    document.getElementById('collageFrameTray2')
+  ];
 
   var camEditBtn = document.getElementById('camEditBtn');
 
@@ -6950,6 +6978,7 @@ var qrcode = function() {
   function hidePickers() {
     framePickerBlock.hidden = true;
     stickerPickerBlock.hidden = true;
+    collageFramePickerBlock.hidden = true;
   }
   function renderFrameTray() {
     frameTray.innerHTML = '';
@@ -6969,6 +6998,35 @@ var qrcode = function() {
     });
   }
   renderFrameTray();
+
+  // Same pattern as renderFrameTray() above, just x3 (one tray per collage
+  // tile) and keyed off collageTileFrameStyle instead of the single-photo
+  // selectedFrameStyle. Picking one redraws the composited canvas so the
+  // change is visible immediately in the preview.
+  function renderCollageFrameTrays() {
+    collageTileFrameStyle.forEach(function (styleForTile, tileIndex) {
+      var tray = collageFrameTrays[tileIndex];
+      tray.innerHTML = '';
+      FRAME_LIBRARY.forEach(function (item) {
+        var thumb = document.createElement('button');
+        thumb.type = 'button';
+        thumb.className = 'sticker-thumb' + (item.style === styleForTile ? ' is-selected' : '');
+        var thumbSrc = 'data:image/svg+xml;base64,' + btoa(buildFrameSvg(60, 60, item.style, 'rainbow', null, selectedFrameThicknessMm));
+        thumb.innerHTML = '<img src="' + thumbSrc + '" alt="' + item.label + '">';
+        thumb.title = item.label;
+        thumb.addEventListener('click', function () {
+          collageTileFrameStyle[tileIndex] = item.style;
+          recomposeCollage();
+          renderCollageFrameTrays();
+        });
+        tray.appendChild(thumb);
+      });
+    });
+  }
+  // Not called at page load -- collageTileFrameStyle isn't assigned until
+  // later in this same script (near the rest of the collage code); the
+  // trays only need to exist by the time a collage's "Frame" picker can
+  // first be opened, which composeCollage() ensures.
 
   var frameColorRainbowBtn = document.getElementById('frameColorRainbowBtn');
   var frameColorCustomBtn = document.getElementById('frameColorCustomBtn');
@@ -6999,6 +7057,14 @@ var qrcode = function() {
   });
 
   camFrameToggleBtn.addEventListener('click', function () {
+    // A collage's "Frame" is its 3 per-tile pickers, not the site-wide
+    // single-photo frame (which doesn't apply to a collage composite).
+    if (lastCaptureType === 'collage') {
+      var showCollage = collageFramePickerBlock.hidden;
+      hidePickers();
+      collageFramePickerBlock.hidden = !showCollage;
+      return;
+    }
     var show = framePickerBlock.hidden;
     hidePickers();
     framePickerBlock.hidden = !show;
@@ -7010,6 +7076,7 @@ var qrcode = function() {
   });
   frameBlockCloseBtn.addEventListener('click', function () { framePickerBlock.hidden = true; });
   stickerBlockCloseBtn.addEventListener('click', function () { stickerPickerBlock.hidden = true; });
+  collageFrameBlockCloseBtn.addEventListener('click', function () { collageFramePickerBlock.hidden = true; });
 
   // Live-view equivalents of the two buttons above, reached from the menu
   // instead of a toggle row (the viewfinder behind them is full-screen now).
@@ -8005,14 +8072,33 @@ var qrcode = function() {
     clearStickers();
     refreshFrameOverlay();
   }
+  // A 3-in-1 collage is landscape-shaped (1800x1200); reviewing/editing it
+  // is only offered as a proper landscape view when the phone is actually
+  // tilted sideways -- not squeezed/cropped into a portrait-shaped box on
+  // an upright phone. Upright still shows the whole photo (letterboxed,
+  // not cropped) plus a hint to tilt for the real editing view (per-tile
+  // frames, dragging the Ema sticker).
+  var collageTiltHint = document.getElementById('collageTiltHint');
+  function updateCollagePreviewOrientation() {
+    var isCollage = lastCaptureType === 'collage';
+    var landscape = camOrientation === 'landscape';
+    camPreviewWrap.setAttribute('data-orientation', camOrientation);
+    camPreviewWrap.classList.toggle('collage-landscape', isCollage && landscape);
+    camPreviewWrap.classList.toggle('collage-portrait', isCollage && !landscape);
+    collageTiltHint.hidden = !(isCollage && !landscape);
+  }
   window.matchMedia('(orientation: landscape)').addEventListener('change', function () {
-    if (camLive.hidden) return; // only react while the live camera view is open
-    applyPhysicalOrientation();
+    if (!camLive.hidden) { applyPhysicalOrientation(); return; }
+    if (!camPreview.hidden) {
+      camOrientation = window.matchMedia('(orientation: landscape)').matches ? 'landscape' : 'portrait';
+      updateCollagePreviewOrientation();
+      refreshPreviewFrameSize();
+    }
   });
 
   function enterPreview() {
     camPreviewWrap.setAttribute('data-orientation', camOrientation);
-    camPreviewWrap.classList.toggle('collage-landscape', lastCaptureType === 'collage');
+    updateCollagePreviewOrientation();
     camLive.hidden = true;
     camPreview.hidden = false;
     camSaveMsg.textContent = '';
@@ -8094,6 +8180,7 @@ var qrcode = function() {
 
   function resetCollageState() {
     collageShots = [];
+    collageTileFrameStyle = ['sparkles', 'sparkles', 'sparkles'];
     updateCollageProgressUI();
   }
 
@@ -8137,117 +8224,198 @@ var qrcode = function() {
     g.addColorStop(1, '#c6b6e8');
     return g;
   }
+  function loadSvgImage(svgString) {
+    return new Promise(function (resolve) {
+      var img = new Image();
+      img.onload = function () { resolve(img); };
+      img.src = 'data:image/svg+xml;base64,' + btoa(svgString);
+    });
+  }
+
+  // Which FRAME_LIBRARY style each of the 3 collage photos uses (index 0 =
+  // primary, 1/2 = the two secondaries) -- "the one with stars at the
+  // corners" (Sparkle Stars) is the default for all three per the brief,
+  // changeable per-tile from the collage edit screen's mini frame trays.
+  var collageTileFrameStyle = ['sparkles', 'sparkles', 'sparkles'];
+  // Circle-block center/diameter in *canvas* pixels, set fresh by
+  // renderCollageCanvas() every render so addCollageEmaSticker() can place
+  // the (editable) Ema sticker against it once the preview screen is up.
+  var collageCircleGeom = null;
+
   // boxX/boxY/boxW/boxH is the band this tile is allowed to occupy -- the
   // actual photo is always sized to true 16:9 and "contain"-fit (never
-  // stretched) inside that box, then centered. Any leftover box space
-  // shows the calm-rainbow background around it, same as the gaps.
-  function drawCollageTile(ctx, shotCanvas, boxX, boxY, boxW, boxH) {
+  // stretched) inside that box, then centered. Returns the tile's own
+  // {x,y,w,h} so its selected decorative frame can be overlaid at the
+  // exact same rect afterward.
+  function fitCollageTileRect(boxX, boxY, boxW, boxH) {
     var targetRatio = 16 / 9;
     var w, h;
-    if (boxW / boxH > targetRatio) {
-      h = boxH; w = h * targetRatio;
-    } else {
-      w = boxW; h = w / targetRatio;
-    }
-    var x = boxX + (boxW - w) / 2;
-    var y = boxY + (boxH - h) / 2;
-
-    var r = w * 0.025;
-    var strokeW = Math.max(4, w * 0.014);
+    if (boxW / boxH > targetRatio) { h = boxH; w = h * targetRatio; }
+    else { w = boxW; h = w / targetRatio; }
+    return { x: boxX + (boxW - w) / 2, y: boxY + (boxH - h) / 2, w: w, h: h };
+  }
+  function drawCollagePhoto(ctx, shotCanvas, rect) {
+    var targetRatio = 16 / 9;
     var sw = shotCanvas.width, sh = shotCanvas.height;
     var srcRatio = sw / sh;
     var cropW, cropH, cropX, cropY;
-    if (srcRatio > targetRatio) {
-      cropH = sh; cropW = sh * targetRatio; cropX = (sw - cropW) / 2; cropY = 0;
-    } else {
-      cropW = sw; cropH = sw / targetRatio; cropX = 0; cropY = (sh - cropH) / 2;
-    }
+    if (srcRatio > targetRatio) { cropH = sh; cropW = sh * targetRatio; cropX = (sw - cropW) / 2; cropY = 0; }
+    else { cropW = sw; cropH = sw / targetRatio; cropX = 0; cropY = (sh - cropH) / 2; }
     ctx.save();
-    collageRoundRectPath(ctx, x, y, w, h, r);
+    collageRoundRectPath(ctx, rect.x, rect.y, rect.w, rect.h, rect.w * 0.025);
     ctx.clip();
-    ctx.drawImage(shotCanvas, cropX, cropY, cropW, cropH, x, y, w, h);
-    ctx.restore();
-
-    ctx.save();
-    collageRoundRectPath(ctx, x + strokeW / 2, y + strokeW / 2, w - strokeW, h - strokeW, Math.max(0, r - strokeW / 2));
-    ctx.lineWidth = strokeW;
-    ctx.strokeStyle = collageRainbowGradient(ctx, x, y, x + w, y + h);
-    ctx.stroke();
+    ctx.drawImage(shotCanvas, cropX, cropY, cropW, cropH, rect.x, rect.y, rect.w, rect.h);
     ctx.restore();
   }
-  function drawHappyBirthdayBand(ctx, x, y, w, h) {
-    ctx.save();
-    collageRoundRectPath(ctx, x, y, w, h, w * 0.02);
-    ctx.fillStyle = 'rgba(255,255,255,0.55)';
-    ctx.fill();
-    ctx.restore();
-
-    var palette = ['#f0a0b8', '#f8c99a', '#f3dd94', '#a4cdec', '#c6b6e8'];
-    for (var i = 0; i < 16; i++) {
-      var px = x + Math.random() * w, py = y + Math.random() * h;
-      ctx.fillStyle = palette[i % palette.length];
-      ctx.beginPath();
-      ctx.arc(px, py, w * 0.005 + Math.random() * w * 0.005, 0, Math.PI * 2);
-      ctx.fill();
-    }
+  // Overlays the tile's selected FRAME_LIBRARY style -- same renderer and
+  // same 8 styles as the regular single-photo frame ("the existing
+  // Frames") -- built at the tile's own exact size so it isn't stretched.
+  function drawCollageTileFrame(ctx, rect, style) {
+    var svg = buildFrameSvg(Math.round(rect.w), Math.round(rect.h), style, 'rainbow', null, selectedFrameThicknessMm);
+    return loadSvgImage(svg).then(function (img) {
+      ctx.drawImage(img, rect.x, rect.y, rect.w, rect.h);
+    });
+  }
+  // Minimal two-line word-wrap for canvas fillText, centered on (cx,cy).
+  function wrapCollageText(ctx, text, cx, cy, maxWidth, lineHeight) {
+    var words = text.split(' ');
+    var lines = [], line = '';
+    words.forEach(function (word) {
+      var test = line ? line + ' ' + word : word;
+      if (ctx.measureText(test).width > maxWidth && line) { lines.push(line); line = word; }
+      else { line = test; }
+    });
+    if (line) lines.push(line);
+    var startY = cy - (lines.length - 1) * lineHeight / 2;
+    lines.forEach(function (l, i) { ctx.fillText(l, cx, startY + i * lineHeight); });
+  }
+  function drawCollageCircleBlock(ctx, x, y, w, h) {
+    var headlineH = h * 0.24, subH = h * 0.20;
+    var circleAreaY = y + headlineH, circleAreaH = h - headlineH - subH;
+    var diameter = Math.min(w * 0.86, circleAreaH * 0.92);
+    var cx = x + w / 2, cy = circleAreaY + circleAreaH / 2;
 
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = '#3a332c';
-    ctx.font = '700 ' + Math.round(h * 0.32) + 'px "Baloo Deco", sans-serif';
-    ctx.fillText('Happy Birthday!', x + w / 2, y + h * 0.38);
-    ctx.fillStyle = '#c9789a';
-    ctx.font = '600 ' + Math.round(h * 0.3) + 'px "Estre Script", cursive';
-    ctx.fillText('Ema', x + w / 2, y + h * 0.74);
+    ctx.font = '700 ' + Math.round(headlineH * 0.4) + 'px "Baloo Deco", sans-serif';
+    wrapCollageText(ctx, 'Happy 1st Birthday Ema!', cx, y + headlineH / 2, w * 0.94, headlineH * 0.46);
+
+    // A soft ring guide marking where the Ema sticker sits -- the sticker
+    // itself is a normal draggable/resizable/rotatable sticker layered on
+    // top afterward (see addCollageEmaSticker()), not baked in here, so
+    // it's still editable after this first render.
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy, diameter / 2, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.fill();
+    ctx.lineWidth = Math.max(3, diameter * 0.025);
+    ctx.strokeStyle = collageRainbowGradient(ctx, cx - diameter / 2, cy - diameter / 2, cx + diameter / 2, cy + diameter / 2);
+    ctx.stroke();
+    ctx.restore();
+
+    ctx.fillStyle = '#6d6355';
+    ctx.font = '600 ' + Math.round(subH * 0.34) + 'px "Karla Read", sans-serif';
+    wrapCollageText(ctx, 'thank you for celebrating with us', cx, y + h - subH / 2, w * 0.92, subH * 0.4);
+
+    collageCircleGeom = { cx: cx, cy: cy, diameter: diameter };
+  }
+
+  // Pure (re-)draw of the whole collage canvas from whatever's currently in
+  // collageShots + collageTileFrameStyle -- callable more than once so
+  // changing a tile's frame in the edit screen can redraw without losing
+  // the 3 captured shots. Grid: top row is Primary (35% of the card) next
+  // to the Ema circle block (15%); bottom row is the two secondaries (25%
+  // each) side by side -- same 35/25/25/15 area split as before, just
+  // arranged in a 2x2 grid instead of 3 stacked bands.
+  function renderCollageCanvas() {
+    var W = 1800, H = 1200; // 4R print size, 300dpi 6x4in, landscape
+    camCanvas.width = W;
+    camCanvas.height = H;
+    var ctx = camCanvas.getContext('2d');
+
+    var bg = ctx.createLinearGradient(0, 0, W, H);
+    bg.addColorStop(0, '#f9dde2');
+    bg.addColorStop(0.25, '#fbe9d2');
+    bg.addColorStop(0.5, '#f8f2d6');
+    bg.addColorStop(0.75, '#dcebf4');
+    bg.addColorStop(1, '#e7dff1');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+
+    var pad = Math.round(W * 0.035), gap = Math.round(W * 0.03);
+    var row1H = Math.round(H * 0.5), row2H = H - row1H;
+    var primColW = Math.round(W * 0.7);
+    var halfW = Math.round(W * 0.5);
+
+    var primaryRect = fitCollageTileRect(pad, pad, primColW - pad - gap / 2, row1H - pad - gap / 2);
+    var sec1Rect = fitCollageTileRect(pad, row1H + gap / 2, halfW - pad - gap / 2, row2H - pad - gap / 2);
+    var sec2Rect = fitCollageTileRect(halfW + gap / 2, row1H + gap / 2, W - halfW - pad - gap / 2, row2H - pad - gap / 2);
+
+    drawCollagePhoto(ctx, collageShots[0], primaryRect);
+    drawCollagePhoto(ctx, collageShots[1], sec1Rect);
+    drawCollagePhoto(ctx, collageShots[2], sec2Rect);
+    drawCollageCircleBlock(ctx, primColW + gap / 2, pad, W - primColW - pad - gap / 2, row1H - pad - gap / 2);
+
+    return Promise.all([
+      drawCollageTileFrame(ctx, primaryRect, collageTileFrameStyle[0]),
+      drawCollageTileFrame(ctx, sec1Rect, collageTileFrameStyle[1]),
+      drawCollageTileFrame(ctx, sec2Rect, collageTileFrameStyle[2])
+    ]).then(function () {
+      // Overall frame: fixed rainbow Wave style, 0.5mm -- drawn last so its
+      // thin border/corner flowers sit on top of everything else.
+      return loadSvgImage(buildFrameSvg(W, H, 'wave', 'rainbow', null, 0.5)).then(function (img) {
+        ctx.drawImage(img, 0, 0, W, H);
+      });
+    });
+  }
+
+  // Places the default Ema sticker in the circle guide as a normal,
+  // already-interactive sticker (drag/pinch-resize/rotate all come free
+  // from the existing sticker system) -- called once, right after the
+  // preview screen for a fresh collage is up.
+  function addCollageEmaSticker() {
+    if (!collageCircleGeom) return;
+    var emaItem = STICKER_LIBRARY.filter(function (s) { return s.id === 'ema'; })[0] || STICKER_LIBRARY[0];
+    addSticker(emaItem, camPreviewWrap, previewStickers);
+    var entry = previewStickers[previewStickers.length - 1];
+    var wrapRect = camPreviewWrap.getBoundingClientRect();
+    var factor = wrapRect.width / camCanvas.width;
+    entry.state.x = collageCircleGeom.cx * factor;
+    entry.state.y = collageCircleGeom.cy * factor;
+    entry.state.scale = (collageCircleGeom.diameter * factor * 0.82) / entry.state.baseWidth;
+    applyStickerTransform(entry.wrapper, entry.state);
   }
 
   function composeCollage() {
     updateCollageProgressUI();
     document.fonts.ready.then(function () {
-      var W = 1800, H = 1200; // 4R print size, 300dpi 6x4in, landscape
-      camCanvas.width = W;
-      camCanvas.height = H;
-      var ctx = camCanvas.getContext('2d');
+      renderCollageCanvas().then(function () {
+        uploadedImageRatio = null;
+        camCollageMode = false;
+        camCollageBtn.setAttribute('aria-pressed', 'false');
+        collageIndicator.hidden = true;
+        // collageShots stays populated (not cleared here) -- the edit
+        // screen's per-tile frame trays call renderCollageCanvas() again
+        // on each change, and need the 3 shots still around to redraw.
 
-      var bg = ctx.createLinearGradient(0, 0, W, H);
-      bg.addColorStop(0, '#f9dde2');
-      bg.addColorStop(0.25, '#fbe9d2');
-      bg.addColorStop(0.5, '#f8f2d6');
-      bg.addColorStop(0.75, '#dcebf4');
-      bg.addColorStop(1, '#e7dff1');
-      ctx.fillStyle = bg;
-      ctx.fillRect(0, 0, W, H);
-
-      var pad = Math.round(W * 0.035);
-      var gap = Math.round(W * 0.03);
-
-      var primaryBandH = Math.round(H * 0.35);
-      var secondaryBandH = Math.round(H * 0.50);
-      var bottomBandH = H - primaryBandH - secondaryBandH;
-
-      var primW = W - pad * 2, primH = primaryBandH - pad - gap / 2;
-      drawCollageTile(ctx, collageShots[0], pad, pad, primW, primH);
-
-      var secY = primaryBandH + gap / 2;
-      var secH = secondaryBandH - gap;
-      var secW = (W - pad * 2 - gap) / 2;
-      drawCollageTile(ctx, collageShots[1], pad, secY, secW, secH);
-      drawCollageTile(ctx, collageShots[2], pad + secW + gap, secY, secW, secH);
-
-      var bandY = primaryBandH + secondaryBandH + gap / 2;
-      var bandH = bottomBandH - pad - gap / 2;
-      drawHappyBirthdayBand(ctx, pad, bandY, W - pad * 2, bandH);
-
-      uploadedImageRatio = null;
-      camCollageMode = false;
-      camCollageBtn.setAttribute('aria-pressed', 'false');
-      collageShots = [];
-      collageIndicator.hidden = true;
-
-      camCanvas.toBlob(function (blob) {
-        lastCaptureBlob = blob;
-        finishEnterPreviewFromCanvas('Save Collage', 'collage');
-      }, 'image/jpeg', 0.92);
+        camCanvas.toBlob(function (blob) {
+          lastCaptureBlob = blob;
+          finishEnterPreviewFromCanvas('Save Collage', 'collage');
+          addCollageEmaSticker();
+          renderCollageFrameTrays();
+        }, 'image/jpeg', 0.92);
+      });
+    });
+  }
+  // Re-draws the canvas after a per-tile frame change in the edit screen,
+  // without disturbing the already-placed, already-edited Ema sticker
+  // (that's a separate DOM layer, untouched by redrawing the canvas
+  // underneath it) or re-running the whole capture/compose sequence.
+  function recomposeCollage() {
+    renderCollageCanvas().then(function () {
+      camCanvas.toBlob(function (blob) { lastCaptureBlob = blob; }, 'image/jpeg', 0.92);
     });
   }
 
@@ -8466,10 +8634,10 @@ var qrcode = function() {
       }
       camPickerToggle.hidden = true;
       hidePickers();
-      // Collage composites are already fully styled (rainbow wash, per-tile
-      // strokes, Happy Birthday band) -- baking the selected decorative
-      // frame on top too would just compete with that, so only 'photo'
-      // goes through bakeFrameAndCaption().
+      // Collage composites already bake their own per-tile frames + overall
+      // Wave frame (see renderCollageCanvas()) -- baking the site's
+      // separately-selected decorative frame on top too would just compete
+      // with that, so only 'photo' goes through bakeFrameAndCaption().
       if (lastCaptureType === 'photo') {
         bakeFrameAndCaption(ctx, camCanvas.width, camCanvas.height, function () {
           camCanvas.toBlob(function (blob) {
@@ -8478,6 +8646,7 @@ var qrcode = function() {
           }, 'image/jpeg', 0.92);
         });
       } else {
+        collageShots = [];
         camCanvas.toBlob(function (blob) {
           lastCaptureBlob = blob;
           finishSave(blob);
