@@ -1173,6 +1173,22 @@
   @media (prefers-reduced-motion: reduce) {
     .fairy-flying { transition: opacity 0.6s ease; }
   }
+  /* Minimal sparkle trail behind the flying fairy -- a handful of tiny,
+     short-lived, GPU-cheap dots (transform+opacity only, no JS per-frame
+     work), never more than ~5 alive at once since each removes itself
+     after less than one spawn interval's worth of siblings. */
+  .fairy-sparkle {
+    position: fixed; z-index: 1000; pointer-events: none;
+    border-radius: 50%;
+    animation: fairySparkleFade 0.9s ease-out forwards;
+  }
+  @keyframes fairySparkleFade {
+    0% { opacity: 0.95; transform: scale(1) translateY(0); }
+    100% { opacity: 0; transform: scale(0.15) translateY(-16px); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .fairy-sparkle { display: none; }
+  }
   .music-playlist-popup {
     position: absolute; bottom: 0; right: calc(100% + 10px);
     width: 230px; max-height: 300px; overflow-y: auto;
@@ -4946,6 +4962,33 @@ var qrcode = function() {
     var x = Math.random() * maxX, y = Math.random() * maxY;
     fairyEl.style.transform = 'translate(' + x + 'px, ' + y + 'px) scale(' + scale.toFixed(2) + ')';
   }
+  // Rainbow stardust trail -- reads the fairy's own live position (its
+  // CSS transition is already mid-flight most of the time, so the real
+  // getBoundingClientRect() naturally traces the actual flight path) and
+  // drops one tiny dot every ~220ms. Each dot is a plain div with a CSS
+  // keyframe animation and self-removes after 900ms, so there's never
+  // more than a handful alive -- cheap enough for a phone, no per-frame
+  // JS at all (the browser's compositor drives the actual fade/drift).
+  var FAIRY_SPARKLE_COLORS = ['#f0a0b8', '#f8c99a', '#f3dd94', '#b3e0c2', '#a4cdec', '#c6b6e8'];
+  var fairySparkleIntervalId = null;
+  var fairyReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function spawnFairySparkle() {
+    if (fairyEl.hidden) return;
+    var rect = fairyEl.getBoundingClientRect();
+    if (!rect.width) return;
+    var sp = document.createElement('div');
+    sp.className = 'fairy-sparkle';
+    var size = 4 + Math.random() * 5;
+    var color = FAIRY_SPARKLE_COLORS[Math.floor(Math.random() * FAIRY_SPARKLE_COLORS.length)];
+    sp.style.left = (rect.left + rect.width * (0.3 + Math.random() * 0.4) - size / 2) + 'px';
+    sp.style.top = (rect.top + rect.height * (0.3 + Math.random() * 0.4) - size / 2) + 'px';
+    sp.style.width = size + 'px';
+    sp.style.height = size + 'px';
+    sp.style.background = color;
+    sp.style.boxShadow = '0 0 6px ' + color;
+    document.body.appendChild(sp);
+    setTimeout(function () { sp.remove(); }, 900);
+  }
   function showFairy() {
     if (voiceMuted) return;
     fairyEl.hidden = false;
@@ -4954,9 +4997,14 @@ var qrcode = function() {
     fairyFlyStep();
     if (fairyLoopId) clearInterval(fairyLoopId);
     fairyLoopId = setInterval(fairyFlyStep, 2600 + Math.random() * 1200);
+    if (!fairyReducedMotion) {
+      if (fairySparkleIntervalId) clearInterval(fairySparkleIntervalId);
+      fairySparkleIntervalId = setInterval(spawnFairySparkle, 220);
+    }
   }
   function hideFairy() {
     if (fairyLoopId) { clearInterval(fairyLoopId); fairyLoopId = null; }
+    if (fairySparkleIntervalId) { clearInterval(fairySparkleIntervalId); fairySparkleIntervalId = null; }
     fairyEl.hidden = true;
   }
 
