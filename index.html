@@ -4832,22 +4832,114 @@ var qrcode = function() {
   });
 
   /* ---- Fairy EMA: flies + zooms randomly on screen for as long as the
-     voice greeting is audibly playing -- reuses the same cutout already
-     in STICKER_LIBRARY rather than embedding the image twice. Looked up
-     lazily since STICKER_LIBRARY isn't declared until further down. ---- */
+     voice greeting is audibly playing, cycling through a scripted set of
+     photobooth stickers cued to the greeting's own timing (seconds from
+     the start). "textbox" frames get their caption composited onto a
+     scratch canvas at the sign's own position within that sticker (found
+     empirically, as a fraction of the sticker's own pixel size) and
+     shrink-to-fit like the collage headline text does. Reuses the same
+     cutouts already in STICKER_LIBRARY rather than embedding them twice;
+     looked up lazily since STICKER_LIBRARY isn't declared until further
+     down. ---- */
   var fairyEl = document.getElementById('fairyEma');
-  var fairyItemCache = null;
-  function fairyItem() {
-    if (!fairyItemCache) fairyItemCache = STICKER_LIBRARY.filter(function (s) { return s.id === 'fairyema'; })[0];
-    return fairyItemCache;
+  var FAIRY_TIMELINE = [
+    { start: 0, id: 'fairyema' },
+    { start: 6, id: 'fairyblessing' },
+    { start: 9, id: 'fairyballoons' },
+    { start: 12, id: 'fairyexcited' },
+    { start: 15, id: 'fairytextboxwhite', text: 'Sunday, October 11th, 2026' },
+    { start: 21, id: 'fairyblessing' },
+    { start: 24, id: 'fairytextboxwhite', text: '9:00a-10:30a @ St. Francis of Assisi Parish Limay, Bataan' },
+    { start: 31, id: 'fairyexcited' },
+    { start: 34, id: 'fairytextboxrainbow', text: 'Limay Multipurpose Hall @Limay Park 11:00a-3:00p' },
+    { start: 48, id: 'fairycake' },
+    { start: 49, id: 'fairygames' },
+    { start: 50, id: 'fairyfun' },
+    { start: 52, id: 'fairyblessing' },
+    { start: 53, id: 'fairyballoons' },
+    { start: 54, id: 'fairyexcited' },
+    { start: 60, id: 'fairyparty' },
+    { start: 65, id: 'fairytextboxrainbow', text: 'RSVP on or before Oct 01, 2026' },
+    { start: 72, id: 'fairyincake' }
+  ];
+  // Where each blank sign's box sits within its own sticker, as a fraction
+  // of that sticker's pixel size (measured against the actual cutout).
+  var FAIRY_TEXTBOX_LAYOUT = {
+    fairytextboxwhite: { xFrac: 0.163, yFrac: 0.60, wFrac: 0.62, hFrac: 0.27 },
+    fairytextboxrainbow: { xFrac: 0.138, yFrac: 0.638, wFrac: 0.64, hFrac: 0.24 }
+  };
+  function fairyLibraryItem(id) {
+    return STICKER_LIBRARY.filter(function (s) { return s.id === id; })[0];
   }
+  function drawFairyFittedText(ctx, text, x, y, w, h) {
+    var pad = w * 0.06;
+    var maxW = w - pad * 2, maxH = h - pad * 2;
+    var fontSize = maxH, lines = [text], lineHeight = fontSize;
+    do {
+      ctx.font = '700 ' + Math.round(fontSize) + 'px "Karla Read", sans-serif';
+      lineHeight = fontSize * 1.15;
+      var words = text.split(' '), line = '';
+      lines = [];
+      words.forEach(function (word) {
+        var test = line ? line + ' ' + word : word;
+        if (ctx.measureText(test).width > maxW && line) { lines.push(line); line = word; }
+        else { line = test; }
+      });
+      if (line) lines.push(line);
+      var maxLineW = 0;
+      lines.forEach(function (l) { maxLineW = Math.max(maxLineW, ctx.measureText(l).width); });
+      if (lines.length * lineHeight <= maxH && maxLineW <= maxW) break;
+      fontSize *= 0.92;
+    } while (fontSize > 6);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#3a332c';
+    var cx = x + w / 2, cy = y + h / 2;
+    var startY = cy - (lines.length - 1) * lineHeight / 2;
+    lines.forEach(function (line, i) { ctx.fillText(line, cx, startY + i * lineHeight); });
+  }
+  var fairyCurrentDims = { w: 359, h: 500 };
+  function setFairyImage(seg) {
+    var item = fairyLibraryItem(seg.id);
+    if (!item) return;
+    fairyCurrentDims = { w: item.w, h: item.h };
+    if (!seg.text) { fairyEl.src = item.src; return; }
+    var layout = FAIRY_TEXTBOX_LAYOUT[seg.id];
+    var img = new Image();
+    img.onload = function () {
+      var canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      var ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      if (layout) {
+        drawFairyFittedText(ctx, seg.text,
+          layout.xFrac * canvas.width, layout.yFrac * canvas.height,
+          layout.wFrac * canvas.width, layout.hFrac * canvas.height);
+      }
+      fairyEl.src = canvas.toDataURL('image/png');
+    };
+    img.src = item.src;
+  }
+  var fairySegmentIndex = -1;
+  function applyFairySegment() {
+    if (fairyEl.hidden) return;
+    var t = bgVoiceAudio.currentTime;
+    var idx = 0;
+    for (var i = 0; i < FAIRY_TIMELINE.length; i++) {
+      if (t >= FAIRY_TIMELINE[i].start) idx = i; else break;
+    }
+    if (idx === fairySegmentIndex) return;
+    fairySegmentIndex = idx;
+    setFairyImage(FAIRY_TIMELINE[idx]);
+  }
+  bgVoiceAudio.addEventListener('timeupdate', applyFairySegment);
+
   var fairyLoopId = null;
   function fairyFlyStep() {
-    var item = fairyItem();
-    if (!item) return;
     var vw = window.innerWidth, vh = window.innerHeight;
     var fh = Math.min(vh * 0.5, 378); // mirrors the 10cm/50vh CSS cap closely enough for bounds math
-    var fw = fh * (item.w / item.h);
+    var fw = fh * (fairyCurrentDims.w / fairyCurrentDims.h);
     var scale = 0.6 + Math.random() * 0.4;
     var maxX = Math.max(0, vw - fw * scale);
     var maxY = Math.max(0, vh - fh * scale);
@@ -4855,9 +4947,10 @@ var qrcode = function() {
     fairyEl.style.transform = 'translate(' + x + 'px, ' + y + 'px) scale(' + scale.toFixed(2) + ')';
   }
   function showFairy() {
-    if (voiceMuted || !fairyItem()) return;
-    if (!fairyEl.src) fairyEl.src = fairyItem().src;
+    if (voiceMuted) return;
     fairyEl.hidden = false;
+    fairySegmentIndex = -1;
+    applyFairySegment();
     fairyFlyStep();
     if (fairyLoopId) clearInterval(fairyLoopId);
     fairyLoopId = setInterval(fairyFlyStep, 2600 + Math.random() * 1200);
