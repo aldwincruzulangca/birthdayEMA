@@ -374,6 +374,24 @@
     margin-top: 26px;
   }
   .gift-note { font-size: 12.5px; color: var(--ink-soft); margin: 0; line-height: 1.5; }
+
+  /* ---- Theme note + FAQ: same glassy card as Gift Registry, generalized
+     since neither is feature-specific. ---- */
+  .info-card {
+    background: var(--card);
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(255,255,255,0.7);
+    border-radius: 20px;
+    padding: 20px 18px;
+    margin-bottom: 26px;
+  }
+  .info-card .body-copy { font-size: 13px; color: var(--ink-soft); line-height: 1.6; margin: 0; }
+  .info-card .body-copy strong { color: var(--ink); }
+  .faq-item { padding: 10px 0; border-bottom: 1px solid rgba(58, 51, 44, 0.1); }
+  .faq-item:first-child { padding-top: 0; }
+  .faq-item:last-child { padding-bottom: 0; border-bottom: none; }
+  .faq-q { font-weight: 700; font-size: 13.5px; color: var(--ink); margin: 0 0 4px; }
+  .faq-a { font-size: 12.5px; color: var(--ink-soft); margin: 0; line-height: 1.5; }
   .gift-qr-grid { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; margin-top: 16px; }
   .gift-method-btn {
     display: flex; flex-direction: column; align-items: center; gap: 6px;
@@ -1764,6 +1782,33 @@
   </section>
 
 <section class="block tab-page" id="details">
+
+    <div class="info-card" id="themeNoteCard">
+      <div class="sub-head">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 2 2.4 6.6L21 11l-6.6 2.4L12 20l-2.4-6.6L3 11l6.6-2.4L12 2Z"/></svg>
+        <h2>Our Little Unicorn's Theme</h2>
+      </div>
+      <p class="body-copy">We're celebrating with a <strong>Rainbow Unicorn Fantasy</strong> &mdash; think pastel rainbows, sparkles, and soft dreamy colors. Feel free to come in rose, mint, sky blue, lilac, or anything that sparkles like a unicorn. No costumes required, just good vibes and comfy shoes for dancing!</p>
+    </div>
+
+    <div class="info-card" id="faqCard">
+      <div class="sub-head">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <h2>Good to Know</h2>
+      </div>
+      <div class="faq-item">
+        <p class="faq-q">Is there parking at the venue?</p>
+        <p class="faq-a">Yes, Limay Multipurpose Hall has guest parking available on-site.</p>
+      </div>
+      <div class="faq-item">
+        <p class="faq-q">Can I bring my kids?</p>
+        <p class="faq-a">Of course! Just let us know how many little ones are coming in your RSVP so we can plan seats and pabitin favors.</p>
+      </div>
+      <div class="faq-item">
+        <p class="faq-q">What if I can't make it?</p>
+        <p class="faq-a">No worries at all &mdash; a message on the Wishes Wall below means just as much to EMA's family.</p>
+      </div>
+    </div>
 
     <div class="gift-card" id="giftCard" hidden>
       <div class="sub-head">
