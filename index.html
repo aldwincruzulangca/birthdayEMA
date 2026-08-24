@@ -1449,9 +1449,16 @@
       padding: 44px 40px 0;
     }
 
+    /* #invite carries the hero + info-pills + RSVP + Program now (see the
+       tab-page regrouping above) -- RSVP/Program sit side by side, and the
+       calendar/venue pills lay out horizontally instead of stacked. */
+    #invite.active { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+    #invite > * { grid-column: 1 / -1; }
+    #invite #rsvpCard, #invite #programCard { grid-column: auto; }
+    #invite .info-pills { flex-direction: row; }
+    #invite .info-pill { flex: 1; }
+
     #details.active { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
-    #details .info-pills { grid-column: 1 / -1; flex-direction: row; }
-    #details .info-pill { flex: 1; }
 
     .slideshow { max-width: 480px; margin-left: auto; margin-right: auto; }
     .gallery-grid { grid-template-columns: repeat(5, 1fr); }
@@ -1561,11 +1568,6 @@
   </div>
   <div class="avatar-dots" id="avatarDots" hidden></div>
   <div class="img-editor-thumb-tray" id="avatarManageTray" style="justify-content: center; margin: 0 auto 20px; max-width: 336px;" hidden></div>
-
-  
-  </section>
-
-<section class="block tab-page" id="details">
 
     <div class="info-pills" style="margin-bottom: 26px;">
       <div class="info-pill cal" id="calPill" role="button" tabindex="0" aria-label="Add EMA's first birthday to your calendar">
@@ -1700,6 +1702,13 @@
       </div>
       <p class="program-note">Suggested flow &mdash; tell KD the real order of activities and this updates to match.</p>
     </div>
+
+    
+
+  
+  </section>
+
+<section class="block tab-page" id="details">
 
     <div class="gift-card" id="giftCard" hidden>
       <div class="sub-head">
