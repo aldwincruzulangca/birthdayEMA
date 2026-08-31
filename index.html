@@ -516,6 +516,16 @@
     padding: 14px 20px; border-radius: 999px;
     box-shadow: 0 6px 16px var(--shadow);
   }
+  .cam-cta {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    border: none; cursor: pointer;
+    background: linear-gradient(90deg, var(--rose), var(--butter), var(--mint), var(--sky));
+    color: #3a2c1a; font-family: 'Baloo Deco', sans-serif; font-weight: 700; font-size: 15px;
+    padding: 14px 28px; border-radius: 999px;
+    box-shadow: 0 6px 16px var(--shadow);
+  }
+  .cam-cta svg { width: 17px; height: 17px; }
+  .cam-cta:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
   .send-btn svg { width: 17px; height: 17px; }
   .send-btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
   .send-btn:disabled { opacity: 0.4; filter: grayscale(0.5); cursor: not-allowed; box-shadow: none; }
@@ -2037,9 +2047,9 @@
     <p class="panel-sub" style="margin: -6px 0 16px; font-size: 12.5px;">Strike a pose in EMA's birthday frame &mdash; your shot saves to your phone and joins the gallery automatically.</p>
 
     <div class="cam-launcher">
-      <button type="button" class="cta" id="camOpenBtn">
+      <button type="button" class="cam-cta" id="camOpenBtn">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2Z"/><circle cx="12" cy="13" r="4"/></svg>
-        Open Camera
+        Open Photobooth
       </button>
       <p class="rsvp-note" id="camLaunchNote"></p>
     </div>
